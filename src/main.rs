@@ -11,12 +11,14 @@ struct Handler;
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         match msg.content.as_str() {
-            "&teste" => {
+            "teste" => {
                 if let Err(why) = msg.channel_id.say(&ctx.http, "teste").await {
                     println!("Error sending message: {why:?}");
                 }
             }
-            _ => println!("Author: {:?} \n Message: {}", msg.member.unwrap().user.unwrap().global_name, msg.content)
+            _ => {
+                println!("Author: {:?} \n Message: {}", msg.author.name, msg.content);
+            }
         }
     }
 
