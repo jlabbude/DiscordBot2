@@ -23,16 +23,13 @@ impl EventHandler for Handler {
     }
 
     async fn ready(&self, _ctx: Context, data_about_bot: Ready) {
-        println!("{}", data_about_bot.user.name)
+        println!("{:?}", data_about_bot.user.name)
     }
 
-    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        if let Some(old_state) = old {
-            if old_state.user_id == env::var("DISCORD ID lh").unwrap().parse::<u64>().unwrap()
-            && old_state.channel_id != new.channel_id {
-                if let Err(why) = old_state.channel_id.unwrap().join_thread(&ctx.http).await{
-                    println!("Error joining: {why:?}");
-                }
+    async fn voice_state_update(&self, _ctx: Context, old: Option<VoiceState>, new: VoiceState) {
+        if let Some(old_state) = old{
+            if old_state.user_id.get().to_string().eq(&env::var("DISCORD ID lh").unwrap()){
+                println!("OLD STATE: \n {:?} \n\n NEW STATE: {:?}", old_state, new)
             }
         }
     }
@@ -43,7 +40,8 @@ async fn main() {
     let token = env::var("DISCORD TOKEN").expect("Expected a token in the environment");
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT
-        | GatewayIntents::GUILD_VOICE_STATES;
+        | GatewayIntents::GUILD_VOICE_STATES
+        | GatewayIntents::GUILDS;
     let mut client =
         Client::builder(&token, intents).event_handler(Handler).await.expect("Err creating client");
     if let Err(why) = client.start().await {
