@@ -35,6 +35,12 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
     if let Some(channel_id) = voice_state.channel_id {
         println!("User is in voice channel ID: {}", channel_id);
         println!("Guild ID: {}", guild_id);
+
+        let manager = songbird::get(ctx).await
+            .expect("Songbird Voice client placed in at initialisation.").clone();
+
+        manager.join(guild_id, channel_id).await.expect("TODO: panic message");
+
     } else {
         println!("User is not in a voice channel");
     }

@@ -6,6 +6,7 @@ use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMess
 use serenity::model::application::Interaction;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
+use songbird::SerenityInit;
 
 mod commands;
 
@@ -78,12 +79,19 @@ impl EventHandler for Handler {
 #[tokio::main]
 async fn main() {
     let token = env::var("DISCORD TOKEN").expect("Expected a token in the environment");
+
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILDS;
+
     let mut client =
-        Client::builder(&token, intents).event_handler(Handler).await.expect("Err creating client");
+        Client::builder(&token, intents)
+            .event_handler(Handler)
+            .register_songbird()
+            .await
+            .expect("Err creating client");
+
     if let Err(why) = client.start().await {
         println!("Client error: {why:?}");
     }
