@@ -65,7 +65,7 @@ impl EventHandler for Handler {
             };
 
             if let Some(content) = content {
-                let data = CreateInteractionResponseMessage::new().content(content);
+                let data = CreateInteractionResponseMessage::new().content(content).ephemeral(true);
                 let builder = CreateInteractionResponse::Message(data);
                 if let Err(why) = command.create_response(&ctx.http, builder).await {
                     println!("Cannot respond to slash command: {why}");

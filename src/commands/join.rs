@@ -24,15 +24,8 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
         .ok_or("No guilds found in cache")?
         .clone();
 
-    let voice_state: VoiceState =
-        get_voice_state(
-            ctx.clone(),
-            guild_id,
-            user_id)
-        .await
-        .expect("REASON");
-
-    if let Some(channel_id) = voice_state.channel_id {
+    if let Some(voice_state) = get_voice_state(ctx.clone(), guild_id, user_id).await {
+        let channel_id = voice_state.channel_id.unwrap();
         println!("User is in voice channel ID: {}", channel_id);
         println!("Guild ID: {}", guild_id);
 
@@ -42,7 +35,7 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
         manager.join(guild_id, channel_id).await.expect("TODO: panic message");
 
     } else {
-        println!("User is not in a voice channel");
+        return Err("User is not in a voice channel".into());
     }
 
     Ok(())
