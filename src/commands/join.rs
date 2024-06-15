@@ -1,33 +1,36 @@
-use serenity::all::{GuildId, PartialMember, UserId, VoiceState};
+use serenity::all::{GuildId, UserId, VoiceState};
 use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::client::Context;
+#[allow(deprecated)]
 use serenity::framework::standard::CommandResult;
 use serenity::model::application::{CommandOptionType, ResolvedOption, ResolvedValue};
 
-pub(crate) async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult {
+#[allow(deprecated)]
+pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult {
 
-    let member: PartialMember;
+    let user_id: UserId;
 
     if let Some(ResolvedOption {
-                    value: ResolvedValue::User(&ref _id, partial_member), ..
-                }) = options.first(){
-        member = partial_member.clone().unwrap().to_owned();
+                    value: ResolvedValue::User(&ref id, _partial_member), ..
+                }
+    ) = options.first() {
+        user_id = id.id;
     }
     else {
         return Err("No user found in options".into());
     };
 
-    // Get the guild ID from the context
     let guild_id = ctx.cache.guilds().get(0)
-    .ok_or("No guilds found in cache")?
-    .clone();
+        .ok_or("No guilds found in cache")?
+        .clone();
 
-    let user_id = match member.user {
-        Some(user) => user.id,
-        None => return Err("User field is None".into()),
-    };
-
-    let voice_state: VoiceState = get_voice_state(ctx.clone(), guild_id, user_id).await.expect("REASON");
+    let voice_state: VoiceState =
+        get_voice_state(
+            ctx.clone(),
+            guild_id,
+            user_id)
+        .await
+        .expect("REASON");
 
     if let Some(channel_id) = voice_state.channel_id {
         println!("User is in voice channel ID: {}", channel_id);
