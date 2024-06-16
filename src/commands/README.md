@@ -1,0 +1,1 @@
+# *Possible* Rust rewrite of [previous Java based Discord Bot](https://github.com/jlabbude/JotaBot)
