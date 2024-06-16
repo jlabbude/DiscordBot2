@@ -1,6 +1,6 @@
 use std::env;
 
-use serenity::all::{GuildId, Ready, VoiceState};
+use serenity::all::{Ready, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::model::application::Interaction;
@@ -28,11 +28,13 @@ impl EventHandler for Handler {
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
+        if let Some(shard) = ready.shard {
+            println!("{} is connected on shard {}/{}!", ready.user.name, shard.id, shard.total);
 
-        let guilds: Vec<GuildId> = ctx.cache.guilds();
 
-        for guild in guilds {
+        }
+
+        for guild in ctx.cache.guilds() {
             guild.set_commands(&ctx.http, vec![
                     commands::ping::register(),
                     commands::join::register(),
@@ -40,10 +42,11 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn voice_state_update(&self, _ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        if let Some(old_state) = old{
+    async fn voice_state_update(&self, _ctx: Context, old: Option<VoiceState>, _new: VoiceState) {
+        if let Some(old_state) = old {
             if old_state.user_id.get().to_string().eq(&env::var("DISCORD ID lh").unwrap()){
-                println!("OLD STATE: \n {:?} \n\n NEW STATE: {:?}", old_state, new)
+                // println!("OLD STATE: \n {:?} \n\n NEW STATE: {:?}", old_state, new)
+                todo!()
             }
         }
     }
@@ -57,18 +60,18 @@ impl EventHandler for Handler {
                 "ping" => Some(commands::ping::run(&command.data.options())),
                 "join" => {
                     match commands::join::run(&ctx, &command.data.options()).await {
-                        Ok(_) => Some("Join command executed successfully".to_string()),
-                        Err(e) => Some(format!("Error executing join command: {}", e)),
+                        Ok(_) => Some("Joined.".to_string()),
+                        Err(e) => Some(format!("Error: {}", e)),
                     }
                 },
-                _ => Some("not implemented :(".to_string()),
+                _ => Some("Not implemented :(".to_string()),
             };
 
             if let Some(content) = content {
                 let data = CreateInteractionResponseMessage::new().content(content).ephemeral(true);
                 let builder = CreateInteractionResponse::Message(data);
                 if let Err(why) = command.create_response(&ctx.http, builder).await {
-                    println!("Cannot respond to slash command: {why}");
+                    println!("Cannot respond: {why}");
                 }
             }
         }

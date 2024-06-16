@@ -10,14 +10,11 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
 
     let user_id: UserId;
 
-    if let Some(ResolvedOption {
-                    value: ResolvedValue::User(&ref id, _partial_member), ..
-                }
-    ) = options.first() {
+    if let Some(ResolvedOption { value: ResolvedValue::User(&ref id, _partial_member), .. }) = options.first() {
         user_id = id.id;
-    }
-    else {
-        return Err("No user found in options".into());
+    } else {
+        // This should never happen
+        return Err("No user mentioned".into());
     };
 
     let guild_id = ctx.cache.guilds().get(0)
