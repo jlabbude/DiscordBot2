@@ -1,6 +1,6 @@
 use std::env;
 
-use serenity::all::{Ready, VoiceState};
+use serenity::all::{ChannelId, Ready, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::model::application::Interaction;
@@ -42,11 +42,14 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn voice_state_update(&self, _ctx: Context, old: Option<VoiceState>, _new: VoiceState) {
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         if let Some(old_state) = old {
-            if old_state.user_id.get().to_string().eq(&env::var("DISCORD ID lh").unwrap()){
-                // println!("OLD STATE: \n {:?} \n\n NEW STATE: {:?}", old_state, new)
-                todo!()
+            if let Some(_stream) = new.self_stream {
+                if old_state.user_id.get().to_string().eq(&env::var("DISCORD ID lh").unwrap()) {
+                    let msgch: ChannelId = env::var("GENERAL").unwrap().parse().expect("Error parsing channel id");
+
+                    msgch.say(&ctx.http, "Stream started").await.expect("Error sending message");
+                }
             }
         }
     }
@@ -76,7 +79,6 @@ impl EventHandler for Handler {
             }
         }
     }
-
 }
 
 #[tokio::main]
