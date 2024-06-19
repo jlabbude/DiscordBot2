@@ -1,6 +1,6 @@
 use std::env;
 
-use serenity::all::{ChannelId, Ready, VoiceState};
+use serenity::all::{ChannelId, Presence, Ready, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::model::application::Interaction;
@@ -27,12 +27,48 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        if let Some(shard) = ready.shard {
-            println!("{} is connected on shard {}/{}!", ready.user.name, shard.id, shard.total);
+    async fn presence_update(&self, ctx: Context, new_data: Presence) {
+        if /* new_data.user.id.get().to_string().eq(&env::var("DISCORD ID lh").expect("error"))
+        && */ new_data.guild_id.expect("No guild").to_string().eq(&env::var("GUILD ID").expect("error")) {
+            print!("{:?}", new_data.activities);
 
+            let msgch: ChannelId = env::var("GENERAL")
+                .unwrap()
+                .parse()
+                .expect("Error parsing channel id");
 
+            let mut msg = format!("{} começou a jogar {}",
+                new_data
+                  .user
+                  .name
+                  .clone()
+                  .unwrap(),
+                new_data
+                  .activities
+                  .first()
+                  .expect("")
+                  .name);
+
+            if let Some(a) = new_data.clone().activities.first() { // doesn't work
+                msg = format!("{:?} \n\n {:?}",
+                    a.clone()
+                      .assets
+                      .unwrap()
+                      .large_text,
+                    a.clone()
+                      .assets
+                      .unwrap()
+                      .small_text);
+            }
+            msgch
+                .say(&ctx.http, msg)
+                .await
+                .expect("Error sending message");
         }
+    }
+
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        println!("{} is connected!", ready.user.name);
 
         for guild in ctx.cache.guilds() {
             guild.set_commands(&ctx.http, vec![
@@ -87,6 +123,7 @@ async fn main() {
 
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::GUILDS;
 
