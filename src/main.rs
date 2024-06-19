@@ -27,41 +27,44 @@ impl EventHandler for Handler {
         }
     }
 
+    // TODO: fix bug where reconnecting channel makes the bot send the message again
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
-        if
-        /* new_data.user.id.get().to_string().eq(&env::var("DISCORD ID lh").expect("error"))
-        && */
-        new_data
-            .guild_id
-            .expect("No guild")
-            .to_string()
-            .eq(&env::var("GUILD ID").expect("error"))
-        {
-            print!("{:?}", new_data.activities);
+        if let Some(activity) = new_data.activities.first() {
+            if
+            /* new_data.user.id.get().to_string().eq(&env::var("DISCORD ID lh").expect("error"))
+            && */
+            new_data
+                .guild_id
+                .expect("No guild")
+                .to_string()
+                .eq(&env::var("GUILD ID").expect("error"))
+            {
+                print!("{:?}", new_data.activities);
 
-            let msgch: ChannelId = env::var("GENERAL")
-                .unwrap()
-                .parse()
-                .expect("Error parsing channel id");
+                let msgch: ChannelId = env::var("GENERAL")
+                    .unwrap()
+                    .parse()
+                    .expect("Error parsing channel id");
 
-            let mut msg = format!(
-                "{} começou a jogar {}",
-                new_data.user.name.clone().unwrap(),
-                new_data.activities.first().expect("").name
-            );
-
-            if let Some(a) = new_data.clone().activities.first() {
-                // doesn't work
-                msg = format!(
-                    "{:?} \n\n {:?}",
-                    a.clone().assets.unwrap().large_text,
-                    a.clone().assets.unwrap().small_text
+                let mut msg = format!(
+                    "{} começou a jogar {}",
+                    &mut new_data.user.name.unwrap(),
+                    activity.name
                 );
+
+                if let Some(a) = &activity.assets {
+                    // doesn't work
+                    msg = format!(
+                        "{:?} \n\n {:?}",
+                        a.large_text,
+                        a.small_text
+                    );
+                }
+                msgch
+                    .say(&ctx.http, msg)
+                    .await
+                    .expect("Error sending message");
             }
-            msgch
-                .say(&ctx.http, msg)
-                .await
-                .expect("Error sending message");
         }
     }
 
