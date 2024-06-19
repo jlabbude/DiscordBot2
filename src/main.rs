@@ -29,41 +29,50 @@ impl EventHandler for Handler {
 
     // TODO: fix bug where reconnecting channel makes the bot send the message again
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
-        if let Some(activity) = new_data.activities.first() {
-            if
-            /* new_data.user.id.get().to_string().eq(&env::var("DISCORD ID lh").expect("error"))
-            && */
-            new_data
+        let msgch: ChannelId = env::var("GENERAL")
+            .unwrap()
+            .parse()
+            .expect("Error parsing channel id");
+
+        if new_data
+            .user
+            .id
+            .to_string()
+            .eq(&env::var("DISCORD ID lh").unwrap())
+            && new_data
                 .guild_id
-                .expect("No guild")
+                .unwrap()
                 .to_string()
-                .eq(&env::var("GUILD ID").expect("error"))
-            {
-                print!("{:?}", new_data.activities);
+                .eq(&env::var("GUILD ID").unwrap())
+        {
+            if let Some(activity) = new_data.activities.first() {
+                {
+                    print!("{:?}", &new_data.activities);
 
-                let msgch: ChannelId = env::var("GENERAL")
-                    .unwrap()
-                    .parse()
-                    .expect("Error parsing channel id");
-
-                let mut msg = format!(
-                    "{} começou a jogar {}",
-                    &mut new_data.user.name.unwrap(),
-                    activity.name
-                );
-
-                if let Some(a) = &activity.assets {
-                    // doesn't work
-                    msg = format!(
-                        "{:?} \n\n {:?}",
-                        a.large_text,
-                        a.small_text
+                    let msg = format!(
+                        "{} começou a jogar {}",
+                        &mut new_data.user.name.unwrap(),
+                        activity.name
                     );
+
+                    // For some reason there's no normalization for what should be what, so each activity
+                    // displays a different thing on different fields, so I'm just going to leave this here for now
+
+                    // if let Some(a) = &activity.state {
+                    //     // doesn't work
+                    //     msg = format!(
+                    //         "{:?}",
+                    //         a
+                    //         a.large_text,
+                    //         a.small_text
+                    //     );
+                    // }
+
+                    msgch
+                        .say(&ctx.http, msg)
+                        .await
+                        .expect("Error sending message");
                 }
-                msgch
-                    .say(&ctx.http, msg)
-                    .await
-                    .expect("Error sending message");
             }
         }
     }
