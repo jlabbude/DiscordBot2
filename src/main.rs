@@ -1,6 +1,8 @@
 use std::env;
+use std::sync::Arc;
+use std::time::SystemTime;
 
-use serenity::all::{ChannelId, Presence, Ready, VoiceState};
+use serenity::all::{ChannelId, Presence, Ready, UserId, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::model::application::Interaction;
@@ -10,7 +12,10 @@ use songbird::SerenityInit;
 
 mod commands;
 
-struct Handler;
+struct Handler {
+    start_time_stamp_voice: Arc<Mutex<u64>>,
+    start_time_stamp_activity: Arc<Mutex<u64>>,
+}
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -34,16 +39,18 @@ impl EventHandler for Handler {
             .parse()
             .expect("Error parsing channel id");
 
-        if new_data
-            .user
-            .id
+        if
+        /*new_data
+        .user
+        .id
+        .to_string()
+        .eq(&env::var("DISCORD ID lh").unwrap())
+        &&*/
+        new_data
+            .guild_id
+            .unwrap()
             .to_string()
-            .eq(&env::var("DISCORD ID lh").unwrap())
-            && new_data
-                .guild_id
-                .unwrap()
-                .to_string()
-                .eq(&env::var("GUILD ID").unwrap())
+            .eq(&env::var("GUILD ID").unwrap())
         {
             if let Some(activity) = new_data.activities.first() {
                 {
@@ -91,26 +98,45 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        if let Some(old_state) = old {
-            if let Some(_stream) = new.self_stream {
-                if old_state
-                    .user_id
-                    .get()
-                    .to_string()
-                    .eq(&env::var("DISCORD ID lh").unwrap())
-                {
-                    let msgch: ChannelId = env::var("GENERAL")
-                        .unwrap()
-                        .parse()
-                        .expect("Error parsing channel id");
+    async fn voice_state_update(&self, ctx: Context, _old: Option<VoiceState>, new: VoiceState) {
+        let guildid = new.guild_id.unwrap();
+        let jo: UserId = UserId::from(
+            env::var("DISCORD ID lh")
+                .unwrap_or_default()
+                .parse::<u64>()
+                .unwrap(),
+        );
+        let bot: UserId = UserId::from(
+            env::var("DISCORD ID BOT")
+                .unwrap_or_default()
+                .parse::<u64>()
+                .unwrap(),
+        );
 
-                    msgch
-                        .say(&ctx.http, "Stream started")
+        match new.user_id {
+            jot if jot.eq(&jo) => {
+                if let Some(new_channel) = new.channel_id {
+                    let manager = songbird::get(&ctx).await.expect("Songbird").clone();
+
+                    manager
+                        .join(*&new.guild_id.unwrap(), new_channel)
                         .await
-                        .expect("Error sending message");
+                        .expect("TODO: panic message");
+
+                    *self.start_time_stamp_voice.lock().await = SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+                } else {
+                    let manager = songbird::get(&ctx).await.expect("Songbird").clone();
+
+                    manager.leave(*&guildid).await.expect("TODO: panic message");
                 }
             }
+            bo if bo.eq(&bot) => {
+                // TODO disallow it to leave
+            }
+            _ => {}
         }
     }
 
@@ -145,6 +171,9 @@ impl EventHandler for Handler {
 async fn main() {
     let token = env::var("DISCORD TOKEN").expect("Expected a token in the environment");
 
+    let start_time_stamp_voice = Arc::new(Mutex::new(0));
+    let start_time_stamp_activity = Arc::new(Mutex::new(0));
+
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT
         | GatewayIntents::GUILD_PRESENCES
@@ -152,7 +181,10 @@ async fn main() {
         | GatewayIntents::GUILDS;
 
     let mut client = Client::builder(&token, intents)
-        .event_handler(Handler)
+        .event_handler(Handler {
+            start_time_stamp_activity,
+            start_time_stamp_voice,
+        })
         .register_songbird()
         .await
         .expect("Err creating client");
