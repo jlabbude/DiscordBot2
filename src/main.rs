@@ -14,6 +14,7 @@ mod commands;
 
 struct Handler {
     start_time_stamp_voice: Arc<Mutex<u64>>,
+    old_vc: Arc<Mutex<ChannelId>>,
     start_time_stamp_activity: Arc<Mutex<u64>>,
 }
 
@@ -112,29 +113,38 @@ impl EventHandler for Handler {
                 .parse::<u64>()
                 .unwrap(),
         );
+        let manager = songbird::get(&ctx).await.expect("Songbird");
+        let jo_ch = &self.old_vc.lock().await.clone();
 
         match new.user_id {
             jot if jot.eq(&jo) => {
                 if let Some(new_channel) = new.channel_id {
-                    let manager = songbird::get(&ctx).await.expect("Songbird").clone();
-
                     manager
                         .join(*&new.guild_id.unwrap(), new_channel)
                         .await
                         .expect("TODO: panic message");
 
+                    *self.old_vc.lock().await = new_channel.into();
+
                     *self.start_time_stamp_voice.lock().await = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap()
-                        .as_secs();
+                        .as_secs().into();
                 } else {
-                    let manager = songbird::get(&ctx).await.expect("Songbird").clone();
-
                     manager.leave(*&guildid).await.expect("TODO: panic message");
                 }
             }
             bo if bo.eq(&bot) => {
-                // TODO disallow it to leave
+                if let Some(new_channel) = new.channel_id {
+                    if new_channel.eq(jo_ch) {
+                        return;
+                    }else {
+                        manager
+                            .join(*&new.guild_id.unwrap(), *jo_ch)
+                            .await
+                            .expect("TODO: panic message");
+                    }
+                }
             }
             _ => {}
         }
@@ -171,9 +181,6 @@ impl EventHandler for Handler {
 async fn main() {
     let token = env::var("DISCORD TOKEN").expect("Expected a token in the environment");
 
-    let start_time_stamp_voice = Arc::new(Mutex::new(0));
-    let start_time_stamp_activity = Arc::new(Mutex::new(0));
-
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT
         | GatewayIntents::GUILD_PRESENCES
@@ -182,8 +189,9 @@ async fn main() {
 
     let mut client = Client::builder(&token, intents)
         .event_handler(Handler {
-            start_time_stamp_activity,
-            start_time_stamp_voice,
+            start_time_stamp_activity: Arc::new(Default::default()),
+            start_time_stamp_voice: Arc::new(Default::default()),
+            old_vc: Arc::new(Default::default()),
         })
         .register_songbird()
         .await
