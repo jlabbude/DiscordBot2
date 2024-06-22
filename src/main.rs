@@ -25,11 +25,18 @@ macro_rules! try_join_channel {
     };
 }
 
+macro_rules! send_message {
+    ($msg_ch_id:expr, $context:expr, $message_content:expr) => {
+        if let Err(why) = $msg_ch_id.say(&$context, $message_content).await {
+            println!("Error sending message: {why:?}");
+        }
+    };
+}
 
 struct Handler {
-    start_time_stamp_voice: Arc<Mutex<u64>>,
+    start_time_stamp_voice: Arc<Mutex<SystemTime>>,
     old_vc: Arc<Mutex<ChannelId>>,
-    start_time_stamp_activity: Arc<Mutex<u64>>,
+    start_time_stamp_activity: Arc<Mutex<SystemTime>>,
 }
 
 #[async_trait]
@@ -114,16 +121,8 @@ impl EventHandler for Handler {
         }
 
         let manager = songbird::get(&ctx).await.expect("Songbird");
-        let guild: GuildId = GuildId::from(
-            GUILD_ID
-                .parse::<NonZero<u64>>()
-                .unwrap(),
-        );
-        let jo: UserId = UserId::from(
-            DISCORD_ID_LH
-                .parse::<u64>()
-                .unwrap(),
-        );
+        let guild: GuildId = GuildId::from(GUILD_ID.parse::<NonZero<u64>>().unwrap());
+        let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
         let guild_data = ctx.cache.guild(guild).unwrap().clone();
         if let Some(vs) = guild_data.voice_states.get(&jo) {
             if let Some(ch) = vs.channel_id {
@@ -133,18 +132,10 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn voice_state_update(&self, ctx: Context, _old: Option<VoiceState>, new: VoiceState) {
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
-        let jo: UserId = UserId::from(
-            DISCORD_ID_LH
-                .parse::<u64>()
-                .unwrap(),
-        );
-        let bot: UserId = UserId::from(
-            DISCORD_ID_BOT
-                .parse::<u64>()
-                .unwrap(),
-        );
+        let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+        let bot: UserId = UserId::from(DISCORD_ID_BOT.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
         if let Some(cached_ch) = ctx.cache.guild(guildid).unwrap().voice_states.get(&jo) {
@@ -154,18 +145,33 @@ impl EventHandler for Handler {
         match new.user_id {
             jot if jot.eq(&jo) => {
                 if let Some(new_channel) = new.channel_id {
-                    try_join_channel!(manager, *&guildid, new_channel);
+                    match (old, new.self_stream) {
+                        (None, _) => {
+                            try_join_channel!(manager, *&guildid, new_channel);
+                            *self.old_vc.lock().await = new_channel;
+                        }
+                        (Some(old), _) if !new_channel.eq(&old.channel_id.unwrap()) => {
+                            try_join_channel!(manager, *&guildid, new_channel);
+                            *self.old_vc.lock().await = new_channel;
+                            *self.start_time_stamp_voice.lock().await = SystemTime::now();
+                        }
+                        (_, Some(_)) => {
+                            let now = SystemTime::now();
+                            let start = *self.start_time_stamp_voice.lock().await;
+                            let duration = now.duration_since(start).unwrap().as_secs();
 
-                    *self.old_vc.lock().await = new_channel;
+                            let msg_ch_id: ChannelId =
+                                ChannelId::from(GENERAL.parse::<u64>().unwrap());
 
-                    *self.start_time_stamp_voice.lock().await = SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
-                        .into();
+                            let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", jo.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
+
+                            send_message!(msg_ch_id, &ctx, diff);
+                        }
+                        _ => {}
+                    }
                     return;
                 } else {
-                    manager.leave(*&guildid).await.expect("TODO: panic message");
+                    manager.leave(*&guildid).await.expect("Failed to leave");
                     return;
                 }
             }
@@ -174,7 +180,7 @@ impl EventHandler for Handler {
                     if !ch.eq(jo_ch) {
                         try_join_channel!(manager, *&new.guild_id.unwrap(), *jo_ch);
                     }
-                } else{
+                } else {
                     try_join_channel!(manager, *&new.guild_id.unwrap(), *jo_ch);
                 }
             }
@@ -216,8 +222,8 @@ async fn main() {
 
     let mut client = Client::builder(DISCORD_TOKEN, intents)
         .event_handler(Handler {
-            start_time_stamp_activity: Arc::new(Default::default()),
-            start_time_stamp_voice: Arc::new(Default::default()),
+            start_time_stamp_activity: Arc::new(Mutex::new(SystemTime::now())),
+            start_time_stamp_voice: Arc::new(Mutex::new(SystemTime::now())),
             old_vc: Arc::new(Default::default()),
         })
         .register_songbird()
