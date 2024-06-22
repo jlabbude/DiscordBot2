@@ -47,8 +47,8 @@ impl EventHandler for Handler {
         }
     }
 
-    // TODO: fix bug where reconnecting channel makes the bot send the message again
-    /*
+    /* TODO: fix bug where reconnecting channel makes the bot send the message again
+
         async fn presence_update(&self, ctx: Context, new_data: Presence) {
             let msgch: ChannelId = GENERAL
                 .unwrap()
@@ -120,7 +120,7 @@ impl EventHandler for Handler {
                 .unwrap(),
         );
         let jo: UserId = UserId::from(
-            DISCORD_ID_lh
+            DISCORD_ID_LH
                 .parse::<u64>()
                 .unwrap(),
         );
@@ -136,7 +136,7 @@ impl EventHandler for Handler {
     async fn voice_state_update(&self, ctx: Context, _old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
         let jo: UserId = UserId::from(
-            DISCORD_ID_lh
+            DISCORD_ID_LH
                 .parse::<u64>()
                 .unwrap(),
         );
