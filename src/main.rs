@@ -121,7 +121,7 @@ impl EventHandler for Handler {
 
                         send_message!(msgch, &ctx, msg);
                     }
-                    _ => println!("Nothing happened"),
+                    _ => println!("124"),
                 }
 
                 /*
