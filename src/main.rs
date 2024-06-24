@@ -59,14 +59,9 @@ impl EventHandler for Handler {
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut activity_time = self.activity_time_start.lock().await;
 
-        if
-        /*new_data
-        .user
-        .id
-        .to_string()
-        .eq(&DISCORD_ID_lh.unwrap())
-        &&*/
-        new_data.guild_id.unwrap().to_string().eq(GUILD_ID) {
+        if new_data.user.id.to_string().eq(DISCORD_ID_LH)
+            && new_data.guild_id.unwrap().to_string().eq(GUILD_ID)
+        {
             if let Some(activity) = new_data.activities.first() {
                 match (
                     activity.name.as_str(),
@@ -75,9 +70,7 @@ impl EventHandler for Handler {
                 ) {
                     // Avoid useless data
                     ("Spotify", _, _) | ("Hang Status", _, _) => return,
-                    (activity_now, _, _) if activity_now == old_activity_name.as_str() => {
-                        panic!("{} -> {} Old is equal to new", activity_now, activity.name)
-                    }
+                    (activity_now, _, _) if activity_now == old_activity_name.as_str() => return,
                     // If stopped playing game, and it took more than 30 seconds to do so
                     (empty, old, now)
                         if now.duration_since(*activity_time).unwrap().as_secs() >= 30
@@ -96,6 +89,7 @@ impl EventHandler for Handler {
                         *activity_time = SystemTime::now();
                         send_message!(msgch, &ctx, msg);
                     }
+                    // Changed games, and it took more than 30 seconds to do so
                     (current, old, now)
                         if now.duration_since(*activity_time).unwrap().as_secs() >= 30
                             && !current.is_empty() =>
@@ -112,6 +106,7 @@ impl EventHandler for Handler {
 
                         send_message!(msgch, &ctx, msg);
                     }
+                    // Started playing game from scratch
                     (name, empty, now)
                         if now.duration_since(*activity_time).unwrap().as_secs() >= 30
                             && empty.is_empty() =>
@@ -126,9 +121,7 @@ impl EventHandler for Handler {
 
                         send_message!(msgch, &ctx, msg);
                     }
-                    _ => {
-                        println!("Nothing happened")
-                    }
+                    _ => println!("Nothing happened"),
                 }
 
                 /*
