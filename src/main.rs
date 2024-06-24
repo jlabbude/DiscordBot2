@@ -1,9 +1,8 @@
 use std::env;
-use std::num::NonZero;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use serenity::all::{ChannelId, GuildId, Ready, UserId, VoiceState};
+use serenity::all::{ChannelId, GuildId, Presence, Ready, UserId, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::model::application::Interaction;
@@ -34,9 +33,10 @@ macro_rules! send_message {
 }
 
 struct Handler {
-    start_time_stamp_voice: Arc<Mutex<SystemTime>>,
+    voice_time_start: Arc<Mutex<SystemTime>>,
     old_vc: Arc<Mutex<ChannelId>>,
-    start_time_stamp_activity: Arc<Mutex<SystemTime>>,
+    old_activity_name: Arc<Mutex<String>>,
+    activity_time_start: Arc<Mutex<SystemTime>>,
 }
 
 #[async_trait]
@@ -54,59 +54,103 @@ impl EventHandler for Handler {
         }
     }
 
-    /* TODO: fix bug where reconnecting channel makes the bot send the message again
+    async fn presence_update(&self, ctx: Context, new_data: Presence) {
+        let msgch: ChannelId = ChannelId::from(GENERAL.parse::<u64>().unwrap());
+        let mut old_activity_name = self.old_activity_name.lock().await;
+        let mut activity_time = self.activity_time_start.lock().await;
 
-        async fn presence_update(&self, ctx: Context, new_data: Presence) {
-            let msgch: ChannelId = GENERAL
-                .unwrap()
-                .parse()
-                .expect("Error parsing channel id");
-
-            if
-            /*new_data
-            .user
-            .id
-            .to_string()
-            .eq(&DISCORD_ID_lh.unwrap())
-            &&*/
-            new_data
-                .guild_id
-                .unwrap()
-                .to_string()
-                .eq(&GUILD_ID.unwrap())
-            {
-                if let Some(activity) = new_data.activities.first() {
+        if
+        /*new_data
+        .user
+        .id
+        .to_string()
+        .eq(&DISCORD_ID_lh.unwrap())
+        &&*/
+        new_data.guild_id.unwrap().to_string().eq(GUILD_ID) {
+            if let Some(activity) = new_data.activities.first() {
+                match (
+                    activity.name.as_str(),
+                    old_activity_name.as_str(),
+                    *activity_time,
+                ) {
+                    // Avoid useless data
+                    ("Spotify", _, _) | ("Hang Status", _, _) => return,
+                    (activity_now, _, _) if activity_now == old_activity_name.as_str() => {
+                        panic!("{} -> {} Old is equal to new", activity_now, activity.name)
+                    }
+                    // If stopped playing game, and it took more than 30 seconds to do so
+                    (empty, old, now)
+                        if now.duration_since(*activity_time).unwrap().as_secs() >= 30
+                            && empty.is_empty() =>
                     {
-                        print!("{:?}", &new_data.activities);
-
+                        let duration = now.duration_since(*activity_time).unwrap().as_secs();
                         let msg = format!(
-                            "{} começou a jogar {}",
-                            &mut new_data.user.name.unwrap(),
-                            activity.name
+                            "{} jogou {} por {} horas, {} minutos e {} segundos.",
+                            &mut new_data.user.id.mention(),
+                            old,
+                            duration / 3600,
+                            (duration % 3600) / 60,
+                            duration % 60
+                        );
+                        *old_activity_name = activity.name.clone();
+                        *activity_time = SystemTime::now();
+                        send_message!(msgch, &ctx, msg);
+                    }
+                    (current, old, now)
+                        if now.duration_since(*activity_time).unwrap().as_secs() >= 30
+                            && !current.is_empty() =>
+                    {
+                        let duration = now.duration_since(*activity_time).unwrap().as_secs();
+                        let msg = format!(
+                            "{} começou a jogar {} ap�s {} horas, {} minutos e {} segundos jogando {}",
+                            &mut new_data.user.id.mention(),
+                            current, duration / 3600, (duration % 3600) / 60, duration % 60, old
                         );
 
-                        // For some reason there's no normalization for what should be what, so each activity
-                        // displays a different thing on different fields, so I'm just going to leave this here for now
+                        *old_activity_name = activity.name.clone();
+                        *activity_time = SystemTime::now();
 
-                        // if let Some(a) = &activity.state {
-                        //     // doesn't work
-                        //     msg = format!(
-                        //         "{:?}",
-                        //         a
-                        //         a.large_text,
-                        //         a.small_text
-                        //     );
-                        // }
+                        send_message!(msgch, &ctx, msg);
+                    }
+                    (name, empty, now)
+                        if now.duration_since(*activity_time).unwrap().as_secs() >= 30
+                            && empty.is_empty() =>
+                    {
+                        let msg = format!(
+                            "{} começou a jogar {}",
+                            &mut new_data.user.id.mention(),
+                            name,
+                        );
 
-                        msgch
-                            .say(&ctx.http, msg)
-                            .await
-                            .expect("Error sending message");
+                        *old_activity_name = activity.name.clone();
+
+                        send_message!(msgch, &ctx, msg);
+                    }
+                    _ => {
+                        println!("Nothing happened")
                     }
                 }
+
+                /*
+
+                For some reason there's no normalization for what should be what, so each activity
+                displays a different thing on different fields, so I'm just going to leave this here
+                until I figure out what to do with it
+
+                 if let Some(a) = &activity.state {
+                     // doesn't work
+                     msg = format!(
+                         "{:?}",
+                         a
+                         a.large_text,
+                         a.small_text
+                     );
+                 }
+
+                 */
             }
         }
-    */
+    }
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
@@ -121,7 +165,7 @@ impl EventHandler for Handler {
         }
 
         let manager = songbird::get(&ctx).await.expect("Songbird");
-        let guild: GuildId = GuildId::from(GUILD_ID.parse::<NonZero<u64>>().unwrap());
+        let guild: GuildId = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
         let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
         let guild_data = ctx.cache.guild(guild).unwrap().clone();
         if let Some(vs) = guild_data.voice_states.get(&jo) {
@@ -153,11 +197,11 @@ impl EventHandler for Handler {
                         (Some(old), _) if !new_channel.eq(&old.channel_id.unwrap()) => {
                             try_join_channel!(manager, *&guildid, new_channel);
                             *self.old_vc.lock().await = new_channel;
-                            *self.start_time_stamp_voice.lock().await = SystemTime::now();
+                            *self.voice_time_start.lock().await = SystemTime::now();
                         }
                         (_, Some(_)) => {
                             let now = SystemTime::now();
-                            let start = *self.start_time_stamp_voice.lock().await;
+                            let start = *self.voice_time_start.lock().await;
                             let duration = now.duration_since(start).unwrap().as_secs();
 
                             let msg_ch_id: ChannelId =
@@ -222,9 +266,10 @@ async fn main() {
 
     let mut client = Client::builder(DISCORD_TOKEN, intents)
         .event_handler(Handler {
-            start_time_stamp_activity: Arc::new(Mutex::new(SystemTime::now())),
-            start_time_stamp_voice: Arc::new(Mutex::new(SystemTime::now())),
+            activity_time_start: Arc::new(Mutex::new(SystemTime::now())),
+            voice_time_start: Arc::new(Mutex::new(SystemTime::now())),
             old_vc: Arc::new(Default::default()),
+            old_activity_name: Arc::new(Default::default()),
         })
         .register_songbird()
         .await
