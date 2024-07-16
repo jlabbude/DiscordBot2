@@ -7,6 +7,7 @@ edition = "2021"
 serenity = "0.12.2"
 songbird = "0.4.1"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+reqwest = { version = "0.12.5", features = ["blocking", "default", ] }
 
-#[target.x86_64-pc-windows-gnu]
-#linker = "x86_64-w64-mingw32-gcc"
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"

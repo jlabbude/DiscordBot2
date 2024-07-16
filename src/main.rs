@@ -201,8 +201,17 @@ impl EventHandler for Handler {
                                 ChannelId::from(GENERAL.parse::<u64>().unwrap());
 
                             let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", jo.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
-
                             send_message!(msg_ch_id, &ctx, diff);
+
+                            let body = format!(r#"{{"text": "Jotave demorou {} horas, {} minutos, {} segundos para compartilhar a tela"}}"#, duration / 3600, (duration % 3600) / 60, duration % 60);
+
+                            // Fuck this shit i'll figure out how the API works later
+                            // TODO study this shit i guess
+                            std::process::Command::new("python3")
+                                .arg("/home/lucas/Codigo/Rust/DiscordBot2/src/script/tweet.py")
+                                .arg(body)
+                                .output()
+                                .unwrap();
                         }
                         _ => {}
                     }
