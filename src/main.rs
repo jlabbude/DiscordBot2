@@ -208,7 +208,7 @@ impl EventHandler for Handler {
                             // Fuck this shit i'll figure out how the API works later
                             // TODO study this shit i guess
                             std::process::Command::new("python3")
-                                .arg("/home/lucas/Codigo/Rust/DiscordBot2/src/script/tweet.py")
+                                .arg("tweet.py")
                                 .arg(body)
                                 .output()
                                 .unwrap();
