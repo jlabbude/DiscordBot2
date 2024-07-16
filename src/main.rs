@@ -59,7 +59,7 @@ impl EventHandler for Handler {
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut activity_time = self.activity_time_start.lock().await;
 
-        if new_data.user.id.to_string().eq(DISCORD_ID_LH)
+        if new_data.user.id.to_string().eq(DISCORD_ID_JV)
             && new_data.guild_id.unwrap().to_string().eq(GUILD_ID)
         {
             if let Some(activity) = new_data.activities.first() {
@@ -159,7 +159,7 @@ impl EventHandler for Handler {
 
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let guild: GuildId = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
-        let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+        let jo: UserId = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
         let guild_data = ctx.cache.guild(guild).unwrap().clone();
         if let Some(vs) = guild_data.voice_states.get(&jo) {
             if let Some(ch) = vs.channel_id {
@@ -171,7 +171,7 @@ impl EventHandler for Handler {
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
-        let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+        let jo: UserId = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
         let bot: UserId = UserId::from(DISCORD_ID_BOT.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
