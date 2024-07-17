@@ -2,3 +2,4 @@
 .idea/**
 /build.rs
 /src/script/
+/tweet.py

@@ -59,7 +59,7 @@ impl EventHandler for Handler {
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut activity_time = self.activity_time_start.lock().await;
 
-        if new_data.user.id.to_string().eq(DISCORD_ID_JV)
+        if new_data.user.id.to_string().eq(DISCORD_ID_LH)
             && new_data.guild_id.unwrap().to_string().eq(GUILD_ID)
         {
             if let Some(activity) = new_data.activities.first() {
@@ -121,7 +121,7 @@ impl EventHandler for Handler {
 
                         send_message!(msgch, &ctx, msg);
                     }
-                    _ => println!("124"),
+                    _ => {}
                 }
 
                 /*
@@ -159,7 +159,7 @@ impl EventHandler for Handler {
 
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let guild: GuildId = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
-        let jo: UserId = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
+        let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
         let guild_data = ctx.cache.guild(guild).unwrap().clone();
         if let Some(vs) = guild_data.voice_states.get(&jo) {
             if let Some(ch) = vs.channel_id {
@@ -171,7 +171,7 @@ impl EventHandler for Handler {
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
-        let jo: UserId = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
+        let jo: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
         let bot: UserId = UserId::from(DISCORD_ID_BOT.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
@@ -203,15 +203,32 @@ impl EventHandler for Handler {
                             let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", jo.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
                             send_message!(msg_ch_id, &ctx, diff);
 
-                            let body = format!(r#"{{"text": "Jotave demorou {} horas, {} minutos, {} segundos para compartilhar a tela"}}"#, duration / 3600, (duration % 3600) / 60, duration % 60);
+                            let body = format!("Jotave demorou {} horas, {} minutos, {} segundos para compartilhar a tela", duration / 3600, (duration % 3600) / 60, duration % 60);
 
                             // Fuck this shit i'll figure out how the API works later
                             // TODO study this shit i guess
-                            std::process::Command::new("python3")
+                            let output = std::process::Command::new("python3")
                                 .arg("tweet.py")
                                 .arg(body)
-                                .output()
-                                .unwrap();
+                                .output();
+
+                            match output {
+                                Ok(output) => {
+                                    if !output.stdout.is_empty() {
+                                        println!(
+                                            "Output: {}",
+                                            String::from_utf8_lossy(&output.stdout)
+                                        );
+                                    }
+                                    if !output.stderr.is_empty() {
+                                        println!(
+                                            "Error: {}",
+                                            String::from_utf8_lossy(&output.stderr)
+                                        );
+                                    }
+                                }
+                                Err(e) => println!("Failed to execute command: {}", e),
+                            }
                         }
                         _ => {}
                     }
