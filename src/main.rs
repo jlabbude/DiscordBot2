@@ -157,13 +157,17 @@ impl EventHandler for Handler {
                 .unwrap();
         }
 
-        let manager = songbird::get(&ctx).await.expect("Songbird");
-        let guild: GuildId = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
-        let jo: UserId = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
-        let guild_data = ctx.cache.guild(guild).unwrap().clone();
-        if let Some(vs) = guild_data.voice_states.get(&jo) {
+        let guild = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
+        if let Some(vs) = ctx
+            .cache
+            .guild(guild)
+            .unwrap()
+            .clone()
+            .voice_states
+            .get(UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap()).borrow())
+        {
             if let Some(ch) = vs.channel_id {
-                try_join_channel!(manager, guild, ch);
+                try_join_channel!(songbird::get(&ctx).await.expect("Songbird"), guild, ch);
                 *self.old_vc.lock().await = ch.clone();
             }
         }
@@ -171,18 +175,16 @@ impl EventHandler for Handler {
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
-        let jo: UserId = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
-        let bot: UserId = UserId::from(DISCORD_ID_BOT.parse::<u64>().unwrap());
+        let jo = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
         if let Some(cached_ch) = ctx.cache.guild(guildid).unwrap().voice_states.get(&jo) {
             *jo_ch = cached_ch.channel_id.unwrap();
         }
 
-        match new.user_id {
-            jot if jot.eq(&jo) => {
+        match format!("{}", new.user_id).as_str() {
+            DISCORD_ID_JV => {
                 if let Some(new_channel) = new.channel_id {
-
                     match (old.clone(), new.self_stream) {
                         (None, _) => {
                             *self.voice_time_start.lock().await = SystemTime::now();
@@ -235,18 +237,18 @@ impl EventHandler for Handler {
                     }
                     return;
                 } else {
-                    // If user leaves
+                    // If user leaves (since new_channel will be None)
                     manager.leave(*&guildid).await.expect("Failed to leave");
                     return;
                 }
             }
-            bo if bo.eq(&bot) => {
+            DISCORD_ID_BOT => {
                 if let Some(ch) = new.channel_id {
                     if !ch.eq(jo_ch) {
                         // If bot is moved
                         try_join_channel!(manager, *&new.guild_id.unwrap(), *jo_ch);
                     }
-                } else if !Some(*jo_ch).is_some(){
+                } else if !Some(*jo_ch).is_some() {
                     // If bot is disconnected and the user is in the channel
                     try_join_channel!(manager, *&new.guild_id.unwrap(), *jo_ch);
                 }
