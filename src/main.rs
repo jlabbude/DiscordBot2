@@ -64,11 +64,10 @@ impl EventHandler for LocalHandlerCache {
             .unwrap()
             .as_secs();
 
-        if format!("{}", new_data.user.id).eq(DISCORD_ID_LH)
+        if format!("{}", new_data.user.id).eq(DISCORD_ID_JV)
             && format!("{}", new_data.guild_id.unwrap()).eq(GUILD_ID)
             && ellapsed_time >= 30
         {
-            println!("{:?}", new_data.activities);
             if let Some(activity) = new_data.activities.first() {
                 match (activity.name.as_str(), old_activity_name.as_str()) {
                     // Avoid useless data
@@ -138,17 +137,21 @@ impl EventHandler for LocalHandlerCache {
 
                  */
             } else {
-                // If stopped playing game, and it took more than 30 seconds to do so
-                let msg = format!(
-                    "{} jogou {} por {} horas, {} minutos e {} segundos.",
-                    &mut new_data.user.id.mention(),
-                    old_activity_name,
-                    ellapsed_time / 3600,
-                    (ellapsed_time % 3600) / 60,
-                    ellapsed_time % 60
-                );
-                *old_activity_name = String::from("");
-                send_message!(msgch, &ctx, msg);
+                match old_activity_name.as_str() {
+                    old => {
+                        // If stopped playing game,{ and it took more than 30 seconds to do so
+                        let msg = format!(
+                            "{} jogou {} por {} horas, {} minutos e {} segundos.",
+                            &mut new_data.user.id.mention(),
+                            old,
+                            ellapsed_time / 3600,
+                            (ellapsed_time % 3600) / 60,
+                            ellapsed_time % 60
+                        );
+                        *old_activity_name = String::from("");
+                        send_message!(msgch, &ctx, msg);
+                    }
+                }
             }
         }
     }
@@ -166,7 +169,7 @@ impl EventHandler for LocalHandlerCache {
         }
 
         let guild_id = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
-        let user_id = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+        let user_id = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
 
         let Some(voice_state) = ({
             let guild = guild_id.to_guild_cached(&ctx).unwrap();
@@ -185,7 +188,7 @@ impl EventHandler for LocalHandlerCache {
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
-        let jo = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+        let jo = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
         if let Some(cached_ch) = ctx.cache.guild(guildid).unwrap().voice_states.get(&jo) {
@@ -193,7 +196,7 @@ impl EventHandler for LocalHandlerCache {
         }
 
         match format!("{}", new.user_id).as_str() {
-            DISCORD_ID_LH => {
+            DISCORD_ID_JV => {
                 if let Some(new_channel) = new.channel_id {
                     match (old.clone(), new.self_stream) {
                         (None, _) => {
@@ -306,7 +309,7 @@ async fn main() {
             old_vc: Arc::new(Default::default()),
             old_activity_name: Arc::new(Mutex::new(String::from(""))),
             old_pfp: Arc::new(Mutex::new(
-                UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap())
+                UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap())
                     .to_user(Http::new(DISCORD_TOKEN))
                     .await
                     .unwrap()
