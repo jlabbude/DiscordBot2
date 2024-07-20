@@ -2,7 +2,7 @@ use std::env;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use serenity::all::{ChannelId, GuildId, Presence, Ready, UserId, VoiceState};
+use serenity::all::{ChannelId, GuildId, Http, Presence, Ready, UserId, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 use serenity::model::application::Interaction;
@@ -32,15 +32,16 @@ macro_rules! send_message {
     };
 }
 
-struct Handler {
+struct LocalHandlerCache {
     voice_time_start: Arc<Mutex<SystemTime>>,
     old_vc: Arc<Mutex<ChannelId>>,
     old_activity_name: Arc<Mutex<String>>,
     activity_time_start: Arc<Mutex<SystemTime>>,
+    old_pfp: Arc<Mutex<String>>,
 }
 
 #[async_trait]
-impl EventHandler for Handler {
+impl EventHandler for LocalHandlerCache {
     async fn message(&self, ctx: Context, msg: Message) {
         match msg.content.as_str() {
             "teste" => {
@@ -55,62 +56,26 @@ impl EventHandler for Handler {
     }
 
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
-        let msgch: ChannelId = ChannelId::from(GENERAL.parse::<u64>().unwrap());
+        let msgch = ChannelId::from(GENERAL.parse::<u64>().unwrap());
         let mut old_activity_name = self.old_activity_name.lock().await;
-        let mut activity_time = self.activity_time_start.lock().await;
+        let mut cached_start_activity_time = self.activity_time_start.lock().await;
+        let ellapsed_time = SystemTime::now()
+            .duration_since(*cached_start_activity_time)
+            .unwrap()
+            .as_secs();
 
-        if new_data.user.id.to_string().eq(DISCORD_ID_JV)
-            && new_data.guild_id.unwrap().to_string().eq(GUILD_ID)
+        if format!("{}", new_data.user.id).eq(DISCORD_ID_LH)
+            && format!("{}", new_data.guild_id.unwrap()).eq(GUILD_ID)
+            && ellapsed_time >= 30
         {
+            println!("{:?}", new_data.activities);
             if let Some(activity) = new_data.activities.first() {
-                match (
-                    activity.name.as_str(),
-                    old_activity_name.as_str(),
-                    *activity_time,
-                ) {
+                match (activity.name.as_str(), old_activity_name.as_str()) {
                     // Avoid useless data
-                    ("Spotify", _, _) | ("Hang Status", _, _) => return,
-                    (activity_now, _, _) if activity_now == old_activity_name.as_str() => return,
-                    // If stopped playing game, and it took more than 30 seconds to do so
-                    (empty, old, now)
-                        if now.duration_since(*activity_time).unwrap().as_secs() >= 30
-                            && empty.is_empty() =>
-                    {
-                        let duration = now.duration_since(*activity_time).unwrap().as_secs();
-                        let msg = format!(
-                            "{} jogou {} por {} horas, {} minutos e {} segundos.",
-                            &mut new_data.user.id.mention(),
-                            old,
-                            duration / 3600,
-                            (duration % 3600) / 60,
-                            duration % 60
-                        );
-                        *old_activity_name = activity.name.clone();
-                        *activity_time = SystemTime::now();
-                        send_message!(msgch, &ctx, msg);
-                    }
-                    // Changed games, and it took more than 30 seconds to do so
-                    (current, old, now)
-                        if now.duration_since(*activity_time).unwrap().as_secs() >= 30
-                            && !current.is_empty() =>
-                    {
-                        let duration = now.duration_since(*activity_time).unwrap().as_secs();
-                        let msg = format!(
-                            "{} começou a jogar {} ap�s {} horas, {} minutos e {} segundos jogando {}",
-                            &mut new_data.user.id.mention(),
-                            current, duration / 3600, (duration % 3600) / 60, duration % 60, old
-                        );
-
-                        *old_activity_name = activity.name.clone();
-                        *activity_time = SystemTime::now();
-
-                        send_message!(msgch, &ctx, msg);
-                    }
+                    ("Spotify", _) | ("Hang Status", _) => return,
+                    (now, old) if now.eq(old) => return,
                     // Started playing game from scratch
-                    (name, empty, now)
-                        if now.duration_since(*activity_time).unwrap().as_secs() >= 30
-                            && empty.is_empty() =>
-                    {
+                    (name, "") => {
                         let msg = format!(
                             "{} começou a jogar {}",
                             &mut new_data.user.id.mention(),
@@ -118,11 +83,42 @@ impl EventHandler for Handler {
                         );
 
                         *old_activity_name = activity.name.clone();
+                        *cached_start_activity_time = SystemTime::now();
 
                         send_message!(msgch, &ctx, msg);
                     }
-                    _ => {}
+                    // Changed games, and it took more than 30 seconds to do so.
+                    // Unintentionally, this is also a catch-all statement.
+                    (current, old) => {
+                        let msg = format!(
+                            "{} começou a jogar {} ap\u{00F3}s {} horas, {} minutos e {} segundos jogando {}",
+                            &mut new_data.user.id.mention(),
+                            current, ellapsed_time / 3600, (ellapsed_time % 3600) / 60, ellapsed_time % 60, old
+                        );
+                        *old_activity_name = activity.name.clone();
+                        *cached_start_activity_time = SystemTime::now();
+                        send_message!(msgch, &ctx, msg);
+                    }
                 }
+
+                // testing
+                /*println!(
+                    "new {:?} \nold {:?}",
+                    self.old_pfp.lock().await,
+                    new_data.user.to_user().unwrap().avatar_url().unwrap()
+                );
+                if !self.old_pfp.lock().await.clone().eq(&new_data
+                    .user
+                    .to_user()
+                    .unwrap()
+                    .avatar_url()
+                    .unwrap())
+                {
+                    println!("PFP changed");
+                } else {
+                    println!("PFP didn't change");
+                    //send_message!(msgch, &ctx, format!("{}", new_data.user.to_user().unwrap().avatar_url().unwrap()));
+                }*/
 
                 /*
 
@@ -141,6 +137,18 @@ impl EventHandler for Handler {
                  }
 
                  */
+            } else {
+                // If stopped playing game, and it took more than 30 seconds to do so
+                let msg = format!(
+                    "{} jogou {} por {} horas, {} minutos e {} segundos.",
+                    &mut new_data.user.id.mention(),
+                    old_activity_name,
+                    ellapsed_time / 3600,
+                    (ellapsed_time % 3600) / 60,
+                    ellapsed_time % 60
+                );
+                *old_activity_name = String::from("");
+                send_message!(msgch, &ctx, msg);
             }
         }
     }
@@ -157,25 +165,27 @@ impl EventHandler for Handler {
                 .unwrap();
         }
 
-        let guild = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
-        if let Some(vs) = ctx
-            .cache
-            .guild(guild)
-            .unwrap()
-            .clone()
-            .voice_states
-            .get(UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap()).borrow())
-        {
-            if let Some(ch) = vs.channel_id {
-                try_join_channel!(songbird::get(&ctx).await.expect("Songbird"), guild, ch);
-                *self.old_vc.lock().await = ch.clone();
-            }
+        let guild_id = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
+        let user_id = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+
+        let Some(voice_state) = ({
+            let guild = guild_id.to_guild_cached(&ctx).unwrap();
+            guild.voice_states.get(&user_id).cloned()
+        }) else {
+            // User not present in any vsch
+            return;
+        };
+
+        if let Some(ch) = voice_state.channel_id {
+            let songbird = songbird::get(&ctx).await.expect("Songbird");
+            try_join_channel!(songbird, guild_id, ch);
+            *self.old_vc.lock().await = ch.clone();
         }
     }
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let guildid = new.guild_id.unwrap();
-        let jo = UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap());
+        let jo = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
         if let Some(cached_ch) = ctx.cache.guild(guildid).unwrap().voice_states.get(&jo) {
@@ -183,7 +193,7 @@ impl EventHandler for Handler {
         }
 
         match format!("{}", new.user_id).as_str() {
-            DISCORD_ID_JV => {
+            DISCORD_ID_LH => {
                 if let Some(new_channel) = new.channel_id {
                     match (old.clone(), new.self_stream) {
                         (None, _) => {
@@ -290,11 +300,19 @@ async fn main() {
         | GatewayIntents::GUILDS;
 
     let mut client = Client::builder(DISCORD_TOKEN, intents)
-        .event_handler(Handler {
+        .event_handler(LocalHandlerCache {
             activity_time_start: Arc::new(Mutex::new(SystemTime::now())),
             voice_time_start: Arc::new(Mutex::new(SystemTime::now())),
             old_vc: Arc::new(Default::default()),
-            old_activity_name: Arc::new(Default::default()),
+            old_activity_name: Arc::new(Mutex::new(String::from(""))),
+            old_pfp: Arc::new(Mutex::new(
+                UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap())
+                    .to_user(Http::new(DISCORD_TOKEN))
+                    .await
+                    .unwrap()
+                    .avatar_url()
+                    .unwrap(),
+            )),
         })
         .register_songbird()
         .await
