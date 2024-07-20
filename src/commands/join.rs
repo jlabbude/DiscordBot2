@@ -27,7 +27,7 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
         .ok_or("No guilds found in cache")?
         .clone();
 
-    if let Some(voice_state) = get_voice_state(ctx.clone(), guild_id, user_id).await {
+    return if let Some(voice_state) = get_voice_state(ctx.clone(), guild_id, user_id).await {
         let channel_id = voice_state.channel_id.unwrap();
         println!("User is in voice channel ID: {}", channel_id);
         println!("Guild ID: {}", guild_id);
@@ -37,15 +37,13 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
             .expect("Songbird Voice client placed in at initialisation.")
             .clone();
 
-        manager
-            .join(guild_id, channel_id)
-            .await
-            .expect("TODO: panic message");
+        match manager.join(guild_id, channel_id).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err("He isn't him.".into()),
+        }
     } else {
-        return Err("User is not in a voice channel".into());
-    }
-
-    Ok(())
+        Err("User is not in a voice channel".into())
+    };
 }
 
 async fn get_voice_state(ctx: Context, guild_id: GuildId, user_id: UserId) -> Option<VoiceState> {
