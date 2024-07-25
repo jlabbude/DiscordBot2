@@ -32,6 +32,11 @@ macro_rules! send_message {
     };
 }
 
+static J_USER_ID: UserId = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
+static BOT_USER_ID: UserId = UserId::from(DISCORD_ID_BOT.parse::<u64>().unwrap());
+static MSG_CH_ID: ChannelId = ChannelId::from(GENERAL.parse::<u64>().unwrap());
+static GLD_ID: GuildId = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
+
 struct LocalHandlerCache {
     voice_time_start: Arc<Mutex<SystemTime>>,
     old_vc: Arc<Mutex<ChannelId>>,
@@ -56,7 +61,6 @@ impl EventHandler for LocalHandlerCache {
     }
 
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
-        let msgch = ChannelId::from(GENERAL.parse::<u64>().unwrap());
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut cached_start_activity_time = self.activity_time_start.lock().await;
         let ellapsed_time = SystemTime::now()
@@ -64,7 +68,7 @@ impl EventHandler for LocalHandlerCache {
             .unwrap()
             .as_secs();
 
-        if format!("{}", new_data.user.id).eq(DISCORD_ID_LH)
+        if new_data.user.id.eq(&J_USER_ID)
             && format!("{}", new_data.guild_id.unwrap()).eq(GUILD_ID)
             && ellapsed_time >= 30
         {
@@ -85,7 +89,7 @@ impl EventHandler for LocalHandlerCache {
                         *old_activity_name = activity.name.clone();
                         *cached_start_activity_time = SystemTime::now();
 
-                        send_message!(msgch, &ctx, msg);
+                        send_message!(MSG_CH_ID, &ctx, msg);
                     }
                     // Changed games, and it took more than 30 seconds to do so.
                     // Unintentionally, this is also a catch-all statement.
@@ -97,7 +101,7 @@ impl EventHandler for LocalHandlerCache {
                         );
                         *old_activity_name = activity.name.clone();
                         *cached_start_activity_time = SystemTime::now();
-                        send_message!(msgch, &ctx, msg);
+                        send_message!(MSG_CH_ID, &ctx, msg);
                     }
                 }
 
@@ -151,7 +155,7 @@ impl EventHandler for LocalHandlerCache {
                             ellapsed_time % 60
                         );
                         *old_activity_name = String::from("");
-                        send_message!(msgch, &ctx, msg);
+                        send_message!(MSG_CH_ID, &ctx, msg);
                     }
                 }
             }
@@ -164,18 +168,19 @@ impl EventHandler for LocalHandlerCache {
             guild
                 .set_commands(
                     &ctx.http,
-                    vec![commands::ping::register(), commands::join::register()],
+                    vec![
+                        commands::ping::register(),
+                        commands::join::register(),
+                        commands::pic::register(),
+                    ],
                 )
                 .await
                 .unwrap();
         }
 
-        let guild_id = GuildId::from(GUILD_ID.parse::<u64>().unwrap());
-        let user_id = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
-
         let Some(voice_state) = ({
-            let guild = guild_id.to_guild_cached(&ctx).unwrap();
-            guild.voice_states.get(&user_id).cloned()
+            let guild = GLD_ID.to_guild_cached(&ctx).unwrap();
+            guild.voice_states.get(&J_USER_ID).cloned()
         }) else {
             // User not present in any vsch
             return;
@@ -183,31 +188,35 @@ impl EventHandler for LocalHandlerCache {
 
         if let Some(ch) = voice_state.channel_id {
             let songbird = songbird::get(&ctx).await.expect("Songbird");
-            try_join_channel!(songbird, guild_id, ch);
+            try_join_channel!(songbird, GLD_ID, ch);
             *self.old_vc.lock().await = ch.clone();
         }
     }
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        let guildid = new.guild_id.unwrap();
-        let jo = UserId::from(DISCORD_ID_LH.parse::<u64>().unwrap());
         let manager = songbird::get(&ctx).await.expect("Songbird");
         let jo_ch = &mut self.old_vc.lock().await.clone();
-        if let Some(cached_ch) = ctx.cache.guild(guildid).unwrap().voice_states.get(&jo) {
+        if let Some(cached_ch) = ctx
+            .cache
+            .guild(GLD_ID)
+            .unwrap()
+            .voice_states
+            .get(&J_USER_ID)
+        {
             *jo_ch = cached_ch.channel_id.unwrap();
         }
 
-        match format!("{}", new.user_id).as_str() {
-            DISCORD_ID_LH => {
+        match new.user_id {
+            J_USER_ID => {
                 if let Some(new_channel) = new.channel_id {
                     match (old.clone(), new.self_stream) {
                         (None, _) => {
                             *self.voice_time_start.lock().await = SystemTime::now();
                             *self.old_vc.lock().await = new_channel;
-                            try_join_channel!(manager, *&guildid, new_channel);
+                            try_join_channel!(manager, *&GLD_ID, new_channel);
                         }
                         (Some(old), _) if !new_channel.eq(&old.channel_id.unwrap()) => {
-                            try_join_channel!(manager, *&guildid, new_channel);
+                            try_join_channel!(manager, *&GLD_ID, new_channel);
                             *self.old_vc.lock().await = new_channel;
                         }
                         (_, Some(_)) => {
@@ -218,7 +227,7 @@ impl EventHandler for LocalHandlerCache {
                             let msg_ch_id: ChannelId =
                                 ChannelId::from(GENERAL.parse::<u64>().unwrap());
 
-                            let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", jo.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
+                            let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", J_USER_ID.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
                             send_message!(msg_ch_id, &ctx, diff);
 
                             let body = format!("Jotave demorou {} horas, {} minutos, {} segundos para compartilhar a tela", duration / 3600, (duration % 3600) / 60, duration % 60);
@@ -253,11 +262,11 @@ impl EventHandler for LocalHandlerCache {
                     return;
                 } else {
                     // If user leaves (since new_channel will be None)
-                    manager.leave(*&guildid).await.expect("Failed to leave");
+                    manager.leave(*&GLD_ID).await.expect("Failed to leave");
                     return;
                 }
             }
-            DISCORD_ID_BOT => {
+            BOT_USER_ID => {
                 if let Some(ch) = new.channel_id {
                     if !ch.eq(jo_ch) {
                         // If bot is moved
@@ -278,6 +287,10 @@ impl EventHandler for LocalHandlerCache {
                 "ping" => Some(commands::ping::run(&command.data.options())),
                 "join" => match commands::join::run(&ctx, &command.data.options()).await {
                     Ok(_) => Some("Joined.".to_string()),
+                    Err(e) => Some(format!("Error: {}", e)),
+                },
+                "foto" => match commands::pic::run(&ctx, &command.data.options()).await {
+                    Ok(_) => Some("Changed.".to_string()),
                     Err(e) => Some(format!("Error: {}", e)),
                 },
                 _ => Some("Not implemented :(".to_string()),
