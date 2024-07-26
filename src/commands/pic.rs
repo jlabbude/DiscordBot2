@@ -4,12 +4,13 @@ use minifb::{Key, Window, WindowOptions};
 use serenity::all::standard::CommandResult;
 use serenity::all::{Context, ResolvedOption};
 use serenity::builder::CreateCommand;
+use crate::G_USER_ID;
 
 include!(concat!(env!("OUT_DIR"), "/env.rs"));
 
 #[allow(deprecated)]
 pub async fn run(ctx: &Context, _options: &[ResolvedOption<'_>]) -> CommandResult {
-    let url = serenity::all::UserId::from(DISCORD_ID_JV.parse::<u64>().unwrap())
+    let url = G_USER_ID
         .to_user(&ctx)
         .await
         .unwrap()
