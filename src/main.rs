@@ -32,8 +32,6 @@ macro_rules! send_message {
     };
 }
 
-const G_USER_ID: UserId = DISCORD_ID_JV;
-
 struct LocalHandlerCache {
     voice_time_start: Arc<Mutex<SystemTime>>,
     old_vc: Arc<Mutex<ChannelId>>,
@@ -41,6 +39,8 @@ struct LocalHandlerCache {
     activity_time_start: Arc<Mutex<SystemTime>>,
     old_pfp: Arc<Mutex<String>>,
 }
+
+const G_USER_ID: UserId = DISCORD_ID_JV;
 
 #[async_trait]
 impl EventHandler for LocalHandlerCache {
@@ -70,23 +70,16 @@ impl EventHandler for LocalHandlerCache {
             && ellapsed_time >= 30
         {
             if let Some(activity) = new_data.activities.first() {
+                /// "" On activity.name means no activity
                 match (activity.name.as_str(), old_activity_name.as_str()) {
                     // Avoid useless data
-                    ("Spotify", _) | ("Hang Status", _) => return,
+                    ("Spotify", _) | ("Hang Status", _) | ("Custom Status",  _) => return,
                     (now, old) if now.eq(old) => return,
                     ("", _) => return,
                     // Started playing game from scratch
-                    (name, "") => {
-                        let msg = format!(
-                            "{} começou a jogar {}",
-                            &mut new_data.user.id.mention(),
-                            name,
-                        );
-
+                    (_ , "") => {
                         *old_activity_name = activity.name.clone();
                         *cached_start_activity_time = SystemTime::now();
-
-                        send_message!(GENERAL, &ctx, msg);
                     }
                     // Changed games, and it took more than 30 seconds to do so.
                     // Unintentionally, this is also a catch-all statement.
@@ -142,7 +135,7 @@ impl EventHandler for LocalHandlerCache {
                 match old_activity_name.as_str() {
                     "" => return,
                     old => {
-                        // If stopped playing game,{ and it took more than 30 seconds to do so
+                        // If stopped playing game, and it took more than 30 seconds to do so
                         let msg = format!(
                             "{} jogou {} por {} horas, {} minutos e {} segundos.",
                             &mut new_data.user.id.mention(),
