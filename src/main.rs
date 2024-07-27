@@ -1,4 +1,5 @@
 use std::env;
+use std::process::Output;
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -73,11 +74,11 @@ impl EventHandler for LocalHandlerCache {
                 /// "" On activity.name means no activity
                 match (activity.name.as_str(), old_activity_name.as_str()) {
                     // Avoid useless data
-                    ("Spotify", _) | ("Hang Status", _) | ("Custom Status",  _) => return,
+                    ("Spotify", _) | ("Hang Status", _) | ("Custom Status", _) => return,
                     (now, old) if now.eq(old) => return,
                     ("", _) => return,
                     // Started playing game from scratch
-                    (_ , "") => {
+                    (_, "") => {
                         *old_activity_name = activity.name.clone();
                         *cached_start_activity_time = SystemTime::now();
                     }
@@ -227,18 +228,16 @@ impl EventHandler for LocalHandlerCache {
                                 .output();
 
                             match output {
-                                Ok(output) => {
-                                    if !output.stdout.is_empty() {
-                                        println!(
-                                            "Output: {}",
-                                            String::from_utf8_lossy(&output.stdout)
-                                        );
+                                Ok(Output {
+                                    status: _status,
+                                    stdout,
+                                    stderr,
+                                }) => {
+                                    if !stdout.is_empty() {
+                                        println!("Output: {}", String::from_utf8_lossy(&stdout));
                                     }
-                                    if !output.stderr.is_empty() {
-                                        println!(
-                                            "Error: {}",
-                                            String::from_utf8_lossy(&output.stderr)
-                                        );
+                                    if !stderr.is_empty() {
+                                        println!("Error: {}", String::from_utf8_lossy(&stderr));
                                     }
                                 }
                                 Err(e) => println!("Failed to execute command: {}", e),
