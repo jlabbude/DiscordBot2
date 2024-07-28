@@ -71,7 +71,7 @@ impl EventHandler for LocalHandlerCache {
             && ellapsed_time >= 30
         {
             if let Some(activity) = new_data.activities.first() {
-                /// "" On activity.name means no activity
+                // "" On activity.name means no activity
                 match (activity.name.as_str(), old_activity_name.as_str()) {
                     // Avoid useless data
                     ("Spotify", _) | ("Hang Status", _) | ("Custom Status", _) => return,
