@@ -40,7 +40,6 @@ fn get_ips(target_port: u16) -> Result<HashSet<Ipv4Addr>, String> {
             println!("Listening...");
             while now.elapsed().unwrap() < Duration::from_millis(800) {
                 if let Ok(packet) = cap.next_packet() {
-                    println!("Packet: {:?}", packet);
                     let ip_header = &packet[14..34];
                     let src_ip =
                         Ipv4Addr::new(ip_header[12], ip_header[13], ip_header[14], ip_header[15]);
@@ -58,10 +57,13 @@ pub fn run(_options: &[ResolvedOption]) -> String {
     const PORT: u16 = 25565;
     match is_port_open(PORT) {
         Ok(_) => match get_ips(PORT) {
-            Ok(ips) => format!(
-                "O servidor est\u{00E1} **aberto** com {:?} jogadores.",
-                ips.len()
-            ),
+            Ok(ips) => {
+                println!("{:?}", ips.iter());
+                format!(
+                    "O servidor est\u{00E1} **aberto** com {:?} jogadores.",
+                    ips.len()
+                )
+            }
             Err(e) => format!("O servidor est\u{00E1} **aberto**. {}", e),
         },
         Err(_) => String::from("O servidor est\u{00E1} **fechado**."),
