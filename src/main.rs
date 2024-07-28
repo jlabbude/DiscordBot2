@@ -163,6 +163,7 @@ impl EventHandler for LocalHandlerCache {
                         commands::ping::register(),
                         commands::join::register(),
                         commands::pic::register(),
+                        commands::server::register(),
                     ],
                 )
                 .await
@@ -279,13 +280,14 @@ impl EventHandler for LocalHandlerCache {
                     Ok(_) => Some("Changed.".to_string()),
                     Err(e) => Some(format!("Error: {}", e)),
                 },
+                "servidor" => Some(commands::server::run(&command.data.options())),
                 _ => Some("Not implemented :(".to_string()),
             };
 
             if let Some(content) = content {
                 let data = CreateInteractionResponseMessage::new()
                     .content(content)
-                    .ephemeral(true);
+                    .ephemeral(false);
                 let builder = CreateInteractionResponse::Message(data);
                 if let Err(why) = command.create_response(&ctx.http, builder).await {
                     println!("Cannot respond: {why}");

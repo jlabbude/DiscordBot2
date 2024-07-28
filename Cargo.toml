@@ -10,6 +10,7 @@ tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
 reqwest = { version = "0.12.5", features = ["blocking", "default", ] }
 image = "0.25.2"
 minifb = "0.27.0"
+get_if_addrs = "0.5.3"
 
 [build-dependencies]
 serenity = "0.12.2"
