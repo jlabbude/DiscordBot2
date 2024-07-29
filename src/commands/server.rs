@@ -1,8 +1,9 @@
-use pcap::{Capture, Device};
-use serenity::all::{CreateCommand, ResolvedOption};
 use std::collections::HashSet;
 use std::net::{Ipv4Addr, TcpStream};
 use std::time::{Duration, SystemTime};
+
+use pcap::{Capture, Device};
+use serenity::all::{CreateCommand, ResolvedOption};
 
 fn get_ip() -> Option<String> {
     get_if_addrs::get_if_addrs()
@@ -29,13 +30,13 @@ fn get_ips(target_port: u16) -> Result<HashSet<Ipv4Addr>, String> {
         .snaplen(5000)
         .timeout(100)
         .open()
-        .unwrap()
+        .expect("Not ran with sudo")
         .setnonblock()
-        .map_err(|e| String::from(e))?;
+        .map_err(|e| e.to_string())?;
 
     capture
         .filter(&format!("tcp dst port {}", target_port), true)
-        .map_err(|e| String::from(e))?;
+        .map_err(|e| e.to_string())?;
     let now = SystemTime::now();
     println!("Listening...");
     while now.elapsed().unwrap() < Duration::from_millis(800) {
