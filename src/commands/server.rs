@@ -23,34 +23,30 @@ fn is_port_open(port: u16) -> std::io::Result<TcpStream> {
 fn get_ips(target_port: u16) -> Result<HashSet<Ipv4Addr>, String> {
     let mut unique_ips: HashSet<Ipv4Addr> = HashSet::new();
     let device = Device::lookup().unwrap().unwrap();
-    let capture = Capture::from_device(device)
+    let mut capture = Capture::from_device(device)
         .unwrap()
         .promisc(true)
         .snaplen(5000)
         .timeout(100)
         .open()
         .unwrap()
-        .setnonblock();
+        .setnonblock()
+        .map_err(|e| String::from(e))?;
 
-    match capture {
-        Ok(mut cap) => {
-            cap.filter(&format!("tcp dst port {}", target_port), true)
-                .unwrap();
-            let now = SystemTime::now();
-            println!("Listening...");
-            while now.elapsed().unwrap() < Duration::from_millis(800) {
-                if let Ok(packet) = cap.next_packet() {
-                    let ip_header = &packet[14..34];
-                    let src_ip =
-                        Ipv4Addr::new(ip_header[12], ip_header[13], ip_header[14], ip_header[15]);
-                    unique_ips.insert(src_ip);
-                }
-            }
-            println!("Done.");
-            Ok(unique_ips)
+    capture
+        .filter(&format!("tcp dst port {}", target_port), true)
+        .map_err(|e| String::from(e))?;
+    let now = SystemTime::now();
+    println!("Listening...");
+    while now.elapsed().unwrap() < Duration::from_millis(800) {
+        if let Ok(packet) = capture.next_packet() {
+            let ip_header = &packet[14..34];
+            let src_ip = Ipv4Addr::new(ip_header[12], ip_header[13], ip_header[14], ip_header[15]);
+            unique_ips.insert(src_ip);
         }
-        Err(e) => Err(e.to_string()),
     }
+    println!("Done.");
+    Ok(unique_ips)
 }
 
 pub fn run(_options: &[ResolvedOption]) -> String {
