@@ -280,7 +280,10 @@ impl EventHandler for LocalHandlerCache {
                     Ok(_) => Some("Changed.".to_string()),
                     Err(e) => Some(format!("Error: {}", e)),
                 },
-                "servidor" => Some(commands::server::run(&command.data.options())),
+                "servidor" => match commands::server::run(&command.data.options()).await {
+                    Ok(msg) => Some(msg),
+                    Err(e) => Some(e),
+                },
                 _ => Some("Not implemented :(".to_string()),
             };
 
