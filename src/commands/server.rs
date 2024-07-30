@@ -77,7 +77,7 @@ pub async fn check() -> Result<String, String> {
                     1 => {
                         format!(
                             "O servidor est\u{00E1} **aberto** com o jogador:\n- {}",
-                            get_ign(ips).map_err(|e| e.to_string())?)
+                            get_ign(ips).map_err(|e| e.to_string())?[0])
                     }
                     _ => {
                         format!(
