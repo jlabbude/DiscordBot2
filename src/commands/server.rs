@@ -1,14 +1,19 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::net::{Ipv4Addr, TcpStream};
 use std::os::unix::prelude::CommandExt;
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
 use pcap::{Capture, Device};
 use serenity::all::{
     CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue,
 };
+use regex::Regex;
+
 #[derive(strum_macros::EnumString, strum_macros::Display)]
 #[allow(non_camel_case_types)]
 enum Options {
@@ -68,9 +73,8 @@ pub async fn check() -> Result<String, String> {
             Ok(ips) => {
                 println!("{:?}", ips.iter());
                 Ok(format!(
-                    "O servidor est\u{00E1} **aberto** com {:?} jogadores.",
-                    ips.len()
-                ))
+                    "O servidor est\u{00E1} **aberto** com o(s) jogador(es):{}",
+                    get_ign(ips).map_err(|e| e.to_string())?.join("\n- ")))
             }
             Err(e) => Err(format!("O servidor est\u{00E1} **aberto**. {}", e)),
         },
@@ -118,6 +122,31 @@ pub fn start() -> Result<String, String> {
     }
 
     Ok("Servidor iniciado".into())
+}
+
+fn get_ign(ips: HashSet<Ipv4Addr>) -> Result<Vec<String>, String> {
+    let mut contents = String::new();
+    File::open("/home/lucas/Desktop/testetetete/logs/latest.log")
+        .map_err(|e| e.to_string())?
+        .read_to_string(&mut contents)
+        .map_err(|e| e.to_string())?;
+
+    let mut ign_ip: HashMap<Ipv4Addr, String> = HashMap::new();
+    Regex::new(r"(\w+)\[/(\d+\.\d+\.\d+\.\d+):\d+] logged in with entity id")
+        .unwrap()
+        .captures_iter(contents.as_str())
+        .for_each(|matches| {
+            let ign = matches.get(1).unwrap().as_str();
+            let ip = matches.get(2).unwrap().as_str();
+            ign_ip.insert(Ipv4Addr::from_str(ip).unwrap(), ign.to_string());
+        });
+
+    let mut igns: Vec<String> = Vec::new();
+    ips.iter().for_each(|ip| {
+        igns.push(ign_ip.get(ip).unwrap().to_owned());
+    });
+
+    Ok(igns)
 }
 
 #[allow(deprecated)]

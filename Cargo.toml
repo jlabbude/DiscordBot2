@@ -16,6 +16,7 @@ fs2 = "0.4.3"
 libc = "0.2.155"
 strum = "0.26.3"
 strum_macros = "0.26.4"
+regex = "1.10.5"
 
 [build-dependencies]
 serenity = "0.12.2"

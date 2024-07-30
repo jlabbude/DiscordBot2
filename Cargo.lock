@@ -12,6 +12,7 @@ dependencies = [
  "libc",
  "minifb",
  "pcap",
+ "regex",
  "reqwest 0.12.5",
  "serenity",
  "songbird",
