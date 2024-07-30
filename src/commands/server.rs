@@ -9,10 +9,11 @@ use pcap::{Capture, Device};
 use serenity::all::{
     CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue,
 };
-
+#[derive(strum_macros::EnumString, strum_macros::Display)]
+#[allow(non_camel_case_types)]
 enum Options {
-    Check,
-    Start,
+    check,
+    start,
 }
 
 fn get_ip() -> Option<String> {
@@ -144,6 +145,8 @@ pub fn register() -> CreateCommand {
                 .name("action")
                 .description("action related to the server")
                 .kind(CommandOptionType::String)
-                .required(true),
+                .required(true)
+                .add_string_choice(Options::start.to_string(), Options::start.to_string())
+                .add_string_choice(Options::check.to_string(), Options::check.to_string()),
         )
 }

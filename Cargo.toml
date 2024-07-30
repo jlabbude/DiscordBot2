@@ -14,6 +14,8 @@ get_if_addrs = "0.5.3"
 pcap = "2.0.0"
 fs2 = "0.4.3"
 libc = "0.2.155"
+strum = "0.26.3"
+strum_macros = "0.26.4"
 
 [build-dependencies]
 serenity = "0.12.2"
