@@ -76,12 +76,12 @@ pub async fn check() -> Result<String, String> {
                     0 => "O servidor est\u{00E1} **aberto** sem jogadores.".to_string(),
                     1 => {
                         format!(
-                            "O servidor est\u{00E1} **aberto** com o jogador: {}",
-                            get_ign(ips).map_err(|e| e.to_string())?.join("\n- "))
+                            "O servidor est\u{00E1} **aberto** com o jogador:\n- {}",
+                            get_ign(ips).map_err(|e| e.to_string())?)
                     }
                     _ => {
                         format!(
-                            "O servidor est\u{00E1} **aberto** com os jogadores: {}",
+                            "O servidor est\u{00E1} **aberto** com os jogadores:\n- {}",
                             get_ign(ips).map_err(|e| e.to_string())?.join("\n- ")
                         )
                     }
