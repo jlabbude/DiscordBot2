@@ -100,10 +100,6 @@ fn is_process_running(process_name: &str, arg: &str) -> bool {
         .output()
         .expect("Failed to execute pgrep");
 
-    println!("{:?}", output);
-    println!("{}", !output.status.success());
-    println!("{}", String::from_utf8_lossy(&output.stdout));
-
     if !output.status.success() {
         return false;
     }
