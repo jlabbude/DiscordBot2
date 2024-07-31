@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::net::{Ipv4Addr, TcpStream};
-use std::os::unix::prelude::CommandExt;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
@@ -113,20 +112,16 @@ pub fn start() -> Result<String, String> {
         return Err("Somente uma inst\u{00E2}ncia do servidor \u{00E9} permitida.".to_string());
     }
 
-    unsafe {
-        Command::new("sh")
-            .arg("-c")
-            .arg("/home/lucas/Desktop/testetetete/run.sh")
-            .pre_exec(|| {
-                libc::setsid();
-                Ok(())
-            })
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
+    Command::new("screen")
+        .arg("-S")
+        .arg("servermine")
+        .arg("-dm")
+        .arg("/home/lucas/Desktop/testetetete/run.sh")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| e.to_string())?;
 
     Ok("Servidor iniciado".into())
 }
