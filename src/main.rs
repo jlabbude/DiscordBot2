@@ -17,7 +17,7 @@ include!(concat!(env!("OUT_DIR"), "/env.rs"));
 
 macro_rules! try_join_channel {
     ($manager:expr, $guild_id:expr, $channel:expr) => {
-        if let Err(why) = $manager.join(*&$guild_id, $channel).await {
+        if let Err(why) = $manager.join($guild_id, $channel).await {
             println!("Error joining channel: {:?}", why);
         } else {
             return;
@@ -181,7 +181,7 @@ impl EventHandler for LocalHandlerCache {
         if let Some(ch) = voice_state.channel_id {
             let songbird = songbird::get(&ctx).await.expect("Songbird");
             try_join_channel!(songbird, GUILD_ID, ch);
-            *self.old_vc.lock().await = ch.clone();
+            *self.old_vc.lock().await = ch;
         }
     }
 
@@ -205,10 +205,10 @@ impl EventHandler for LocalHandlerCache {
                         (None, _) => {
                             *self.voice_time_start.lock().await = SystemTime::now();
                             *self.old_vc.lock().await = new_channel;
-                            try_join_channel!(manager, *&GUILD_ID, new_channel);
+                            try_join_channel!(manager, GUILD_ID, new_channel);
                         }
                         (Some(old), _) if !new_channel.eq(&old.channel_id.unwrap()) => {
-                            try_join_channel!(manager, *&GUILD_ID, new_channel);
+                            try_join_channel!(manager, GUILD_ID, new_channel);
                             *self.old_vc.lock().await = new_channel;
                         }
                         (_, Some(_)) => {
@@ -249,7 +249,7 @@ impl EventHandler for LocalHandlerCache {
                     return;
                 } else {
                     // If user leaves (since new_channel will be None)
-                    manager.leave(*&GUILD_ID).await.expect("Failed to leave");
+                    manager.leave(GUILD_ID).await.expect("Failed to leave");
                     return;
                 }
             }
@@ -257,11 +257,11 @@ impl EventHandler for LocalHandlerCache {
                 if let Some(ch) = new.channel_id {
                     if !ch.eq(jo_ch) {
                         // If bot is moved
-                        try_join_channel!(manager, *&new.guild_id.unwrap(), *jo_ch);
+                        try_join_channel!(manager, new.guild_id.unwrap(), *jo_ch);
                     }
-                } else if !Some(*jo_ch).is_some() {
+                } else if Some(*jo_ch).is_none() {
                     // If bot is disconnected and the user is in the channel
-                    try_join_channel!(manager, *&new.guild_id.unwrap(), *jo_ch);
+                    try_join_channel!(manager, new.guild_id.unwrap(), *jo_ch);
                 }
             }
             _ => {}

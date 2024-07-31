@@ -11,7 +11,7 @@ pub async fn run(ctx: &Context, _options: &[ResolvedOption<'_>]) -> CommandResul
     let url = G_USER_ID.to_user(&ctx).await.unwrap().avatar_url().unwrap();
 
     let img_bytes = reqwest::get(url).await.unwrap().bytes().await.unwrap();
-    let img = image::load_from_memory(&*img_bytes).unwrap();
+    let img = image::load_from_memory(&img_bytes).unwrap();
 
     display_image(img);
 

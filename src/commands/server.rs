@@ -159,13 +159,13 @@ fn get_ign(ips: HashSet<Ipv4Addr>) -> Result<Vec<String>, String> {
 #[allow(deprecated)]
 pub async fn run(options: &[ResolvedOption<'_>]) -> Result<String, String> {
     if let Some(ResolvedOption {
-        value: ResolvedValue::String(ref _options),
+        value: ResolvedValue::String(_options),
         ..
     }) = options.first()
     {
-        match _options {
-            &"check" => check().await,
-            &"start" => start(),
+        match *_options {
+            "check" => check().await,
+            "start" => start(),
             _ => Err("Invalid option".into()),
         }
     } else {

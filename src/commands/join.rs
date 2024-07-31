@@ -10,7 +10,7 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
     let user_id: UserId;
 
     if let Some(ResolvedOption {
-        value: ResolvedValue::User(&ref id, _partial_member),
+        value: ResolvedValue::User(id, _partial_member),
         ..
     }) = options.first()
     {
@@ -20,14 +20,13 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
         return Err("No user mentioned".into());
     };
 
-    let guild_id = ctx
+    let guild_id = *ctx
         .cache
         .guilds()
-        .get(0)
-        .ok_or("No guilds found in cache")?
-        .clone();
+        .first()
+        .ok_or("No guilds found in cache")?;
 
-    return if let Some(voice_state) = get_voice_state(ctx.clone(), guild_id, user_id).await {
+    if let Some(voice_state) = get_voice_state(ctx.clone(), guild_id, user_id).await {
         let channel_id = voice_state.channel_id.unwrap();
         println!("User is in voice channel ID: {}", channel_id);
         println!("Guild ID: {}", guild_id);
@@ -43,7 +42,7 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> CommandResult
         }
     } else {
         Err("User is not in a voice channel".into())
-    };
+    }
 }
 
 async fn get_voice_state(ctx: Context, guild_id: GuildId, user_id: UserId) -> Option<VoiceState> {
