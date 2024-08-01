@@ -8,10 +8,10 @@ use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
 use pcap::{Capture, Device};
+use regex::Regex;
 use serenity::all::{
     CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue,
 };
-use regex::Regex;
 
 #[derive(strum_macros::EnumString, strum_macros::Display)]
 #[allow(non_camel_case_types)]
@@ -76,7 +76,8 @@ pub async fn check() -> Result<String, String> {
                     1 => {
                         format!(
                             "O servidor est\u{00E1} **aberto** com o jogador:\n- {}",
-                            get_ign(ips).map_err(|e| e.to_string())?[0])
+                            get_ign(ips).map_err(|e| e.to_string())?[0]
+                        )
                     }
                     _ => {
                         format!(
@@ -112,16 +113,28 @@ pub fn start() -> Result<String, String> {
         return Err("Somente uma inst\u{00E2}ncia do servidor \u{00E9} permitida.".to_string());
     }
 
-    Command::new("screen")
-        .arg("-S")
+    Command::new("zellij")
+        .arg("attach")
+        .arg("--create-background")
         .arg("servermine")
-        .arg("-dm")
-        .arg("/home/lucas/Desktop/testetetete/run.sh")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?.wait().map_err(|e| e.to_string())?;
+    Command::new("zellij")
+        .arg("--session")
+        .arg("servermine")
+        .arg("run")
+        .arg("--in-place")
+        .arg("--")
+        .arg("sh")
+        .arg("/home/lucas/Desktop/testetetete/run.sh")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| e.to_string())?.wait().map_err(|e| e.to_string())?;
 
     Ok("Servidor iniciado".into())
 }
