@@ -121,7 +121,9 @@ pub fn start() -> Result<String, String> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| e.to_string())?.wait().map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .wait()
+        .map_err(|e| e.to_string())?;
     Command::new("zellij")
         .arg("--session")
         .arg("servermine")
@@ -134,7 +136,9 @@ pub fn start() -> Result<String, String> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| e.to_string())?.wait().map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .wait()
+        .map_err(|e| e.to_string())?;
 
     Ok("Servidor iniciado".into())
 }
