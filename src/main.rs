@@ -41,7 +41,7 @@ struct LocalHandlerCache {
     old_pfp: Arc<Mutex<String>>,
 }
 
-const G_USER_ID: UserId = DISCORD_ID_JV;
+const G_USER_ID: UserId = DISCORD_ID_LH;
 
 #[async_trait]
 impl EventHandler for LocalHandlerCache {
@@ -61,15 +61,29 @@ impl EventHandler for LocalHandlerCache {
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut cached_start_activity_time = self.activity_time_start.lock().await;
+
         let ellapsed_time = SystemTime::now()
             .duration_since(*cached_start_activity_time)
             .unwrap()
             .as_secs();
 
-        if new_data.user.id.eq(&G_USER_ID)
-            && new_data.guild_id.unwrap().eq(&GUILD_ID)
-            && ellapsed_time >= 30
+        if new_data.user.id.eq(&G_USER_ID) && new_data.guild_id.unwrap().eq(&GUILD_ID)
+        // && ellapsed_time >= 30
         {
+            let old_pfp = self.old_pfp.lock().await;
+            let new_pfp = &G_USER_ID
+                .to_user(&ctx.http)
+                .await
+                .unwrap()
+                .avatar_url()
+                .ok_or("No avatar")
+                .unwrap();
+            if !old_pfp.eq(new_pfp) {
+                commands::pic::create_new_pfp(&ctx)
+                    .await
+                    .map_err(|e| println!("Error: {}", e))
+                    .unwrap();
+            }
             if let Some(activity) = new_data.activities.first() {
                 // "" On activity.name means no activity
                 match (activity.name.as_str(), old_activity_name.as_str()) {
@@ -95,25 +109,6 @@ impl EventHandler for LocalHandlerCache {
                         send_message!(GENERAL, &ctx, msg);
                     }
                 }
-
-                // testing
-                /*println!(
-                    "new {:?} \nold {:?}",
-                    self.old_pfp.lock().await,
-                    new_data.user.to_user().unwrap().avatar_url().unwrap()
-                );
-                if !self.old_pfp.lock().await.clone().eq(&new_data
-                    .user
-                    .to_user()
-                    .unwrap()
-                    .avatar_url()
-                    .unwrap())
-                {
-                    println!("PFP changed");
-                } else {
-                    println!("PFP didn't change");
-                    //send_message!(msgch, &ctx, format!("{}", new_data.user.to_user().unwrap().avatar_url().unwrap()));
-                }*/
 
                 /*
 

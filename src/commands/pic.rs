@@ -63,7 +63,6 @@ pub async fn create_new_pfp(
         nosign,
     );
     overlay.save("pfp.png")?;
-    std::thread::spawn(move || _display_image(&overlay));
 
     //let test = serenity::builder::CreateAttachment::bytes(overlay.into_bytes(), "pfp.png"); FUCK MY STUPID BAKA LIFE
 
