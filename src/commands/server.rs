@@ -131,8 +131,8 @@ pub fn start() -> Result<String, String> {
         .arg("sh")
         .arg("/home/lucas/Desktop/testetetete/run.sh")
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
         .map_err(|e| e.to_string())?.wait().map_err(|e| e.to_string())?;
 
