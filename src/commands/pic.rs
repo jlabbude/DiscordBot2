@@ -1,4 +1,5 @@
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, EncodableLayout, GenericImageView};
+use minifb::{Window, WindowOptions};
 #[allow(deprecated)]
 use serenity::all::standard::CommandResult;
 use serenity::all::{Context, ResolvedOption};
@@ -6,38 +7,81 @@ use serenity::builder::CreateCommand;
 
 use crate::G_USER_ID;
 
-#[allow(deprecated)]
-pub async fn run(ctx: &Context, _options: &[ResolvedOption<'_>]) -> CommandResult {
-    Ok(ctx.http
+fn _display_image(image: &DynamicImage) {
+    // This function is just for testing purposes
+    let (width, height) = image.dimensions();
+    let raw_pixels = image.to_rgba8().into_raw();
+    let buffer: Vec<u32> = raw_pixels
+        .chunks_exact(4)
+        .map(|chunk| {
+            ((chunk[3] as u32) << 24)
+                | ((chunk[0] as u32) << 16)
+                | ((chunk[1] as u32) << 8)
+                | (chunk[2] as u32)
+        })
+        .collect();
+
+    let mut window = Window::new(
+        "Display Image",
+        width as usize,
+        height as usize,
+        WindowOptions::default(),
+    )
+    .expect("Failed to create a window");
+
+    while window.is_open() && !window.is_key_down(minifb::Key::Escape) {
+        window
+            .update_with_buffer(&buffer, width as usize, height as usize)
+            .expect("Failed to update window");
+    }
+}
+
+pub async fn create_new_pfp(
+    ctx: &Context,
+) -> Result<(), Box<(dyn std::error::Error + Send + Sync + 'static)>> {
+    let overlay = overlay_images(
+        image::load_from_memory(
+            reqwest::get(
+                G_USER_ID
+                    .to_user(&ctx)
+                    .await?
+                    .avatar_url()
+                    .ok_or("No avatar")?,
+            )
+            .await?
+            .bytes()
+            .await?
+            .as_bytes(),
+        )?,
+        image::load_from_memory(include_bytes!("../assets/nosign.png"))?,
+    );
+    overlay.save("pfp.png")?;
+
+    //let test = serenity::builder::CreateAttachment::bytes(overlay.into_bytes(), "pfp.png"); FUCK MY STUPID BAKA LIFE
+
+    ctx.http
         .get_current_user()
         .await?
         .edit(
             &ctx,
             serenity::builder::EditProfile::new().avatar(
-                &serenity::builder::CreateAttachment::bytes(
-                    overlay_images(
-                        image::load_from_memory(
-                            &reqwest::get(
-                                G_USER_ID
-                                    .to_user(&ctx)
-                                    .await
-                                    .unwrap()
-                                    .avatar_url()
-                                    .ok_or("No avatar")?,
-                            )
-                                .await
-                                .unwrap()
-                                .bytes()
-                                .await?,
-                        )?,
-                        image::load_from_memory(include_bytes!("../assets/nosign.png"))?,
-                    )
-                        .as_bytes(),
-                    "pfp.png",
-                ),
+                &serenity::builder::CreateAttachment::file(
+                    &tokio::fs::File::open("pfp.png").await?,
+                    "pfp2.png",
+                )
+                .await?,
             ),
         )
-        .await?)
+        .await?;
+
+    std::fs::remove_file("pfp.png")?; // CreateAttachment::bytes doesn't work so this'll have to do until it's fixed
+
+    Ok(())
+}
+
+#[allow(deprecated)]
+pub async fn run(ctx: &Context, _options: &[ResolvedOption<'_>]) -> CommandResult {
+    create_new_pfp(ctx).await // Separate function so I can access it from main as well
 }
 
 pub fn register() -> CreateCommand {

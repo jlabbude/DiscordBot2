@@ -278,7 +278,7 @@ impl EventHandler for LocalHandlerCache {
                 },
                 "foto" => match commands::pic::run(&ctx, &command.data.options()).await {
                     Ok(_) => Some("Changed.".to_string()),
-                    Err(e) => Some(format!("Error: {}", e)),
+                    Err(e) => Some(e.to_string()),
                 },
                 "servidor" => match commands::server::run(&command.data.options()).await {
                     Ok(msg) => Some(msg),
