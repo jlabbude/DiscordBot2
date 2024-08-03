@@ -39,11 +39,13 @@ fn _display_image(image: &DynamicImage) {
 pub async fn create_new_pfp(
     ctx: &Context,
 ) -> Result<(), Box<(dyn std::error::Error + Send + Sync + 'static)>> {
+    let nosign = image::load_from_memory(include_bytes!("../assets/nosign.png"))?;
+
     let overlay = overlay_images(
         image::load_from_memory(
             reqwest::get(
                 G_USER_ID
-                    .to_user(&ctx)
+                    .to_user(&ctx.http)
                     .await?
                     .avatar_url()
                     .ok_or("No avatar")?,
@@ -52,10 +54,16 @@ pub async fn create_new_pfp(
             .bytes()
             .await?
             .as_bytes(),
-        )?,
-        image::load_from_memory(include_bytes!("../assets/nosign.png"))?,
+        )?
+        .resize(
+            nosign.dimensions().0,
+            nosign.dimensions().1,
+            image::imageops::FilterType::Lanczos3,
+        ),
+        nosign,
     );
     overlay.save("pfp.png")?;
+    std::thread::spawn(move || _display_image(&overlay));
 
     //let test = serenity::builder::CreateAttachment::bytes(overlay.into_bytes(), "pfp.png"); FUCK MY STUPID BAKA LIFE
 
