@@ -41,7 +41,7 @@ struct LocalHandlerCache {
     old_pfp: Arc<Mutex<String>>,
 }
 
-const G_USER_ID: UserId = DISCORD_ID_LH;
+const G_USER_ID: UserId = DISCORD_ID_JV;
 
 #[async_trait]
 impl EventHandler for LocalHandlerCache {
@@ -53,7 +53,7 @@ impl EventHandler for LocalHandlerCache {
                 }
             }
             _ => {
-                println!("Author: {:?} \n Message: {}", msg.author.name, msg.content);
+                //println!("Author: {:?} \n Message: {}", msg.author.name, msg.content);
             }
         }
     }
