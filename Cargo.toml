@@ -17,6 +17,7 @@ libc = "0.2.155"
 strum = "0.26.3"
 strum_macros = "0.26.4"
 regex = "1.10.5"
+public-ip = "0.2.2"
 
 [build-dependencies]
 serenity = "0.12.2"

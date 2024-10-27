@@ -9,9 +9,8 @@ use std::time::{Duration, SystemTime};
 
 use pcap::{Capture, Device};
 use regex::Regex;
-use serenity::all::{
-    CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue,
-};
+use serenity::all::{ActivityData, CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue};
+use serenity::client::Context;
 
 #[derive(strum_macros::EnumString, strum_macros::Display)]
 #[allow(non_camel_case_types)]
@@ -108,7 +107,7 @@ fn is_process_running(process_name: &str, arg: &str) -> bool {
     stdout.lines().any(|line| line.contains(arg))
 }
 
-pub fn start() -> Result<String, String> {
+pub fn start(ctx: &Context) -> Result<String, String> {
     if is_process_running("java", "craftbukkit-1.21.jar") {
         return Err("Somente uma inst\u{00E2}ncia do servidor \u{00E9} permitida.".to_string());
     }
@@ -140,6 +139,10 @@ pub fn start() -> Result<String, String> {
         .wait()
         .map_err(|e| e.to_string())?;
 
+        ctx.shard.set_activity(Some(ActivityData::playing(
+            "Servidor aberto".to_string()
+        )));
+
     Ok("Servidor iniciado".into())
 }
 
@@ -169,7 +172,7 @@ fn get_ign(ips: HashSet<Ipv4Addr>) -> Result<Vec<String>, String> {
 }
 
 #[allow(deprecated)]
-pub async fn run(options: &[ResolvedOption<'_>]) -> Result<String, String> {
+pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> Result<String, String> {
     if let Some(ResolvedOption {
         value: ResolvedValue::String(_options),
         ..
@@ -177,7 +180,7 @@ pub async fn run(options: &[ResolvedOption<'_>]) -> Result<String, String> {
     {
         match *_options {
             "check" => check().await,
-            "start" => start(),
+            "start" => start(&ctx),
             _ => Err("Invalid option".into()),
         }
     } else {
