@@ -10,6 +10,7 @@ use serenity::model::application::Interaction;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
 use songbird::SerenityInit;
+use crate::commands::server::is_process_running;
 
 mod commands;
 
@@ -48,17 +49,19 @@ impl EventHandler for LocalHandlerCache {
     async fn message(&self, ctx: Context, msg: Message) {
         match msg.content.as_str() {
             "teste" => {
-                if let Err(why) = msg.channel_id.say(&ctx.http, "teste").await {
+                if let Err(why) = msg.channel_id.say(&ctx.http, "jotateste").await {
                     println!("Error sending message: {why:?}");
                 }
             }
             _ => {
+                remove_activity(&ctx);
                 //println!("Author: {:?} \n Message: {}", msg.author.name, msg.content);
             }
         }
     }
 
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
+        remove_activity(&ctx);
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut cached_start_activity_time = self.activity_time_start.lock().await;
 
@@ -275,7 +278,7 @@ impl EventHandler for LocalHandlerCache {
                     Ok(_) => Some("Changed.".to_string()),
                     Err(e) => Some(e.to_string()),
                 },
-                "servidor" => match commands::server::run(&ctx, &command.data.options()).await {
+                "servidor" => match commands::server::run(&ctx, &command.data.options(), &command.member).await {
                     Ok(msg) => Some(msg),
                     Err(e) => Some(e),
                 },
@@ -292,6 +295,12 @@ impl EventHandler for LocalHandlerCache {
                 }
             }
         }
+    }
+}
+
+fn remove_activity(ctx: &Context) {
+    if !is_process_running("java", "craftbukkit-1.21.jar") {
+        ctx.shard.set_activity(None);
     }
 }
 

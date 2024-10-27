@@ -9,14 +9,17 @@ use std::time::{Duration, SystemTime};
 
 use pcap::{Capture, Device};
 use regex::Regex;
-use serenity::all::{ActivityData, CommandOptionType, CreateCommand, CreateCommandOption, ResolvedOption, ResolvedValue};
+use serenity::all::{ActivityData, CommandOptionType, CreateCommand, CreateCommandOption, Member, ResolvedOption, ResolvedValue, UserId};
 use serenity::client::Context;
+use crate::{DISCORD_ID_LH, DISCORD_ID_PE};
 
 #[derive(strum_macros::EnumString, strum_macros::Display)]
 #[allow(non_camel_case_types)]
 enum Options {
     check,
     start,
+    stop,
+    ip,
 }
 
 fn get_ip() -> Option<String> {
@@ -92,7 +95,7 @@ pub async fn check() -> Result<String, String> {
     }
 }
 
-fn is_process_running(process_name: &str, arg: &str) -> bool {
+pub fn is_process_running(process_name: &str, arg: &str) -> bool {
     let output = Command::new("pgrep")
         .arg("-afl")
         .arg(process_name)
@@ -171,8 +174,23 @@ fn get_ign(ips: HashSet<Ipv4Addr>) -> Result<Vec<String>, String> {
     Ok(igns)
 }
 
+async fn get_server_ip(user: UserId) -> Result<String, String>{
+    const FUWAMOCO: &str = "https://tenor.com/view/fuwamoco-fuwawa-mococo-%E3%83%95%E3%83%AF%E3%83%AF-%E3%83%A2%E3%82%B3%E3%82%B3-gif-17545042085204053426";
+    let ip = match public_ip::addr_v4().await {
+        None => format!("Erro retornando IP. {FUWAMOCO}"),
+        Some(ip) => format!("IP do servidor: `{ip}`")
+    };
+    
+    if user == DISCORD_ID_LH || user == DISCORD_ID_PE {
+        Ok(ip)
+    } else {
+        Err(format!("Sem permiss\u{00E3}o seu BOSTA {FUWAMOCO}"))
+    }
+}
+
 #[allow(deprecated)]
-pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> Result<String, String> {
+pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>], member: &Option<Box<Member>>) -> Result<String, String> {
+    let member = member.as_ref().unwrap().user.id;
     if let Some(ResolvedOption {
         value: ResolvedValue::String(_options),
         ..
@@ -180,7 +198,9 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>]) -> Result<String
     {
         match *_options {
             "check" => check().await,
-            "start" => start(&ctx),
+            "start" => start(ctx),
+            "stop" => Err("Not implemented".into()),
+            "ip" => get_server_ip(member).await,
             _ => Err("Invalid option".into()),
         }
     } else {
@@ -198,6 +218,8 @@ pub fn register() -> CreateCommand {
                 .kind(CommandOptionType::String)
                 .required(true)
                 .add_string_choice(Options::start.to_string(), Options::start.to_string())
-                .add_string_choice(Options::check.to_string(), Options::check.to_string()),
+                .add_string_choice(Options::check.to_string(), Options::check.to_string())
+                .add_string_choice(Options::stop.to_string(), Options::stop.to_string())
+                .add_string_choice(Options::ip.to_string(), Options::ip.to_string()),
         )
 }
