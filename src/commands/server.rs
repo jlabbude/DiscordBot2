@@ -199,7 +199,7 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>], member: &Option<
         match *_options {
             "check" => check().await,
             "start" => start(ctx),
-            "stop" => Err("Not implemented".into()),
+            "stop" => Err("N\u{00E3}o implementado".into()),
             "ip" => get_server_ip(member).await,
             _ => Err("Invalid option".into()),
         }
