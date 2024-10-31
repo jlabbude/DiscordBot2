@@ -10,7 +10,7 @@ use serenity::model::application::Interaction;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
 use songbird::SerenityInit;
-use crate::commands::server::is_process_running;
+use crate::commands::server::is_server_running;
 
 mod commands;
 
@@ -299,7 +299,7 @@ impl EventHandler for LocalHandlerCache {
 }
 
 fn remove_activity(ctx: &Context) {
-    if !is_process_running("java", "craftbukkit-1.21.jar") {
+    if !is_server_running("java", "craftbukkit-1.21.jar") {
         ctx.shard.set_activity(None);
     }
 }

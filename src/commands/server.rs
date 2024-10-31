@@ -11,6 +11,7 @@ use pcap::{Capture, Device};
 use regex::Regex;
 use serenity::all::{ActivityData, CommandOptionType, CreateCommand, CreateCommandOption, Member, ResolvedOption, ResolvedValue, UserId};
 use serenity::client::Context;
+use sysinfo::{Process, System};
 use crate::{DISCORD_ID_LH, DISCORD_ID_PE};
 
 #[derive(strum_macros::EnumString, strum_macros::Display)]
@@ -95,7 +96,7 @@ pub async fn check() -> Result<String, String> {
     }
 }
 
-pub fn is_process_running(process_name: &str, arg: &str) -> bool {
+pub fn is_server_running(process_name: &str, arg: &str) -> bool {
     let output = Command::new("pgrep")
         .arg("-afl")
         .arg(process_name)
@@ -111,7 +112,7 @@ pub fn is_process_running(process_name: &str, arg: &str) -> bool {
 }
 
 pub fn start(ctx: &Context) -> Result<String, String> {
-    if is_process_running("java", "craftbukkit-1.21.jar") {
+    if is_server_running("java", "craftbukkit-1.21.jar") {
         return Err("Somente uma inst\u{00E2}ncia do servidor \u{00E9} permitida.".to_string());
     }
 
@@ -188,6 +189,20 @@ async fn get_server_ip(user: UserId) -> Result<String, String>{
     }
 }
 
+fn stop() -> Result<String, String> {
+    let system = System::new_all();
+    let pid_proc = match system.processes()
+        .iter()
+        .find(|(_pid, process)|
+            process.name() == "java"
+        ) {
+        Some(proc) => proc,
+        None => return Err("Servidor n\u{00E3}o est\u{00E1} aberto".into()),
+    };
+    Process::kill(pid_proc.1);
+    Ok("Servidor fechado".into())
+}
+
 #[allow(deprecated)]
 pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>], member: &Option<Box<Member>>) -> Result<String, String> {
     let member = member.as_ref().unwrap().user.id;
@@ -199,7 +214,7 @@ pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>], member: &Option<
         match *_options {
             "check" => check().await,
             "start" => start(ctx),
-            "stop" => Err("N\u{00E3}o implementado".into()),
+            "stop" => stop(),
             "ip" => get_server_ip(member).await,
             _ => Err("Invalid option".into()),
         }
