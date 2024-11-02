@@ -3,6 +3,7 @@ use std::process::Output;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use crate::commands::server::get_server_pid;
 use serenity::all::{ChannelId, Http, Presence, Ready, UserId, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
@@ -10,7 +11,6 @@ use serenity::model::application::Interaction;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
 use songbird::SerenityInit;
-use crate::commands::server::is_server_running;
 
 mod commands;
 
@@ -278,10 +278,14 @@ impl EventHandler for LocalHandlerCache {
                     Ok(_) => Some("Changed.".to_string()),
                     Err(e) => Some(e.to_string()),
                 },
-                "servidor" => match commands::server::run(&ctx, &command.data.options(), &command.member).await {
-                    Ok(msg) => Some(msg),
-                    Err(e) => Some(e),
-                },
+                "servidor" => {
+                    match commands::server::run(&ctx, &command.data.options(), &command.member)
+                        .await
+                    {
+                        Ok(msg) => Some(msg),
+                        Err(e) => Some(e),
+                    }
+                }
                 _ => Some("Not implemented :(".to_string()),
             };
 
@@ -299,7 +303,7 @@ impl EventHandler for LocalHandlerCache {
 }
 
 fn remove_activity(ctx: &Context) {
-    if !is_server_running("java", "craftbukkit-1.21.jar") {
+    if get_server_pid().is_none() {
         ctx.shard.set_activity(None);
     }
 }

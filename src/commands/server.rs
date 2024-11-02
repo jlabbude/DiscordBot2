@@ -7,12 +7,15 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
+use crate::{DISCORD_ID_LH, DISCORD_ID_PE};
 use pcap::{Capture, Device};
 use regex::Regex;
-use serenity::all::{ActivityData, CommandOptionType, CreateCommand, CreateCommandOption, Member, ResolvedOption, ResolvedValue, UserId};
+use serenity::all::{
+    ActivityData, CommandOptionType, CreateCommand, CreateCommandOption, Member, ResolvedOption,
+    ResolvedValue, UserId,
+};
 use serenity::client::Context;
-use sysinfo::{Process, System};
-use crate::{DISCORD_ID_LH, DISCORD_ID_PE};
+use sysinfo::{Pid, System};
 
 #[derive(strum_macros::EnumString, strum_macros::Display)]
 #[allow(non_camel_case_types)]
@@ -96,23 +99,24 @@ pub async fn check() -> Result<String, String> {
     }
 }
 
-pub fn is_server_running(process_name: &str, arg: &str) -> bool {
+pub fn get_server_pid() -> Option<Pid> {
+    const PNAME: &str = "craftbukkit-1.21.jar";
     let output = Command::new("pgrep")
         .arg("-afl")
-        .arg(process_name)
+        .arg(PNAME)
         .output()
         .expect("Failed to execute pgrep");
 
-    if !output.status.success() {
-        return false;
-    }
-
     let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout.lines().any(|line| line.contains(arg))
+    if !output.status.success() || !stdout.lines().any(|line| line.contains(PNAME)) {
+        None
+    } else {
+        Some(Pid::from_str(stdout.split_whitespace().next()?).ok()?)
+    }
 }
 
 pub fn start(ctx: &Context) -> Result<String, String> {
-    if is_server_running("java", "craftbukkit-1.21.jar") {
+    if get_server_pid().is_none() {
         return Err("Somente uma inst\u{00E2}ncia do servidor \u{00E9} permitida.".to_string());
     }
 
@@ -143,9 +147,8 @@ pub fn start(ctx: &Context) -> Result<String, String> {
         .wait()
         .map_err(|e| e.to_string())?;
 
-        ctx.shard.set_activity(Some(ActivityData::playing(
-            "Servidor aberto".to_string()
-        )));
+    ctx.shard
+        .set_activity(Some(ActivityData::playing("Servidor aberto".to_string())));
 
     Ok("Servidor iniciado".into())
 }
@@ -175,13 +178,12 @@ fn get_ign(ips: HashSet<Ipv4Addr>) -> Result<Vec<String>, String> {
     Ok(igns)
 }
 
-async fn get_server_ip(user: UserId) -> Result<String, String>{
-    const FUWAMOCO: &str = "https://tenor.com/view/fuwamoco-fuwawa-mococo-%E3%83%95%E3%83%AF%E3%83%AF-%E3%83%A2%E3%82%B3%E3%82%B3-gif-17545042085204053426";
+async fn get_server_ip(user: UserId) -> Result<String, String> {
     let ip = match public_ip::addr_v4().await {
         None => format!("Erro retornando IP. {FUWAMOCO}"),
-        Some(ip) => format!("IP do servidor: `{ip}`")
+        Some(ip) => format!("IP do servidor: `{ip}`"),
     };
-    
+
     if user == DISCORD_ID_LH || user == DISCORD_ID_PE {
         Ok(ip)
     } else {
@@ -190,21 +192,19 @@ async fn get_server_ip(user: UserId) -> Result<String, String>{
 }
 
 fn stop() -> Result<String, String> {
-    let system = System::new_all();
-    let pid_proc = match system.processes()
-        .iter()
-        .find(|(_pid, process)|
-            process.name() == "java"
-        ) {
-        Some(proc) => proc,
-        None => return Err("Servidor n\u{00E3}o est\u{00E1} aberto".into()),
-    };
-    Process::kill(pid_proc.1);
+    System::new()
+        .process(get_server_pid().ok_or("Servidor n\u{00E3}o est\u{00E1} aberto".to_string())?)
+        .unwrap()
+        .kill();
     Ok("Servidor fechado".into())
 }
 
 #[allow(deprecated)]
-pub async fn run(ctx: &Context, options: &[ResolvedOption<'_>], member: &Option<Box<Member>>) -> Result<String, String> {
+pub async fn run(
+    ctx: &Context,
+    options: &[ResolvedOption<'_>],
+    member: &Option<Box<Member>>,
+) -> Result<String, String> {
     let member = member.as_ref().unwrap().user.id;
     if let Some(ResolvedOption {
         value: ResolvedValue::String(_options),
@@ -238,3 +238,4 @@ pub fn register() -> CreateCommand {
                 .add_string_choice(Options::ip.to_string(), Options::ip.to_string()),
         )
 }
+const FUWAMOCO: &str = "https://tenor.com/view/fuwamoco-fuwawa-mococo-%E3%83%95%E3%83%AF%E3%83%AF-%E3%83%A2%E3%82%B3%E3%82%B3-gif-17545042085204053426https://tenor.com/view/fuwamoco-fuwawa-mococo-%E3%83%95%E3%83%AF%E3%83%AF-%E3%83%A2%E3%82%B3%E3%82%B3-gif-17545042085204053426";
