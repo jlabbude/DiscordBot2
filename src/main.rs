@@ -3,6 +3,7 @@ use std::process::Output;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use crate::commands::join::get_voice_state;
 use crate::commands::server::get_server_pid;
 use serenity::all::{ChannelId, Http, Presence, Ready, UserId, VoiceState};
 use serenity::async_trait;
@@ -162,6 +163,7 @@ impl EventHandler for LocalHandlerCache {
                         commands::join::register(),
                         commands::pic::register(),
                         commands::server::register(),
+                        commands::voice::register(),
                     ],
                 )
                 .await
@@ -196,73 +198,59 @@ impl EventHandler for LocalHandlerCache {
             *jo_ch = cached_ch.channel_id.unwrap();
         }
 
-        match new.user_id {
-            G_USER_ID => {
-                if let Some(new_channel) = new.channel_id {
-                    match (old.clone(), new.self_stream) {
-                        (None, _) => {
-                            *self.voice_time_start.lock().await = SystemTime::now();
-                            *self.old_vc.lock().await = new_channel;
-                            try_join_channel!(manager, GUILD_ID, new_channel);
-                        }
-                        (Some(old), _) if !new_channel.eq(&old.channel_id.unwrap()) => {
-                            try_join_channel!(manager, GUILD_ID, new_channel);
-                            *self.old_vc.lock().await = new_channel;
-                        }
-                        (_, Some(_)) => {
-                            let now = SystemTime::now();
-                            let start = *self.voice_time_start.lock().await;
-                            let duration = now.duration_since(start).unwrap().as_secs();
+        if new.user_id == G_USER_ID {
+            if let Some(new_channel) = new.channel_id {
+                match (old.clone(), new.self_stream) {
+                    (None, _) => {
+                        *self.voice_time_start.lock().await = SystemTime::now();
+                        *self.old_vc.lock().await = new_channel;
+                        try_join_channel!(manager, GUILD_ID, new_channel);
+                    }
+                    (Some(old), _) if !new_channel.eq(&old.channel_id.unwrap()) => {
+                        try_join_channel!(manager, GUILD_ID, new_channel);
+                        *self.old_vc.lock().await = new_channel;
+                    }
+                    (_, Some(_)) => {
+                        let now = SystemTime::now();
+                        let start = *self.voice_time_start.lock().await;
+                        let duration = now.duration_since(start).unwrap().as_secs();
 
-                            let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", G_USER_ID.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
-                            send_message!(GENERAL, &ctx, diff);
+                        let diff = format!("{} demorou {} horas, {} minutos, {} segundos para compartilhar a tela", G_USER_ID.mention(), duration / 3600, (duration % 3600) / 60, duration % 60);
+                        send_message!(GENERAL, &ctx, diff);
 
-                            let body = format!("Jotave demorou {} horas, {} minutos, {} segundos para compartilhar a tela", duration / 3600, (duration % 3600) / 60, duration % 60);
+                        let body = format!("Jotave demorou {} horas, {} minutos, {} segundos para compartilhar a tela", duration / 3600, (duration % 3600) / 60, duration % 60);
 
-                            // Fuck this shit i'll figure out how the API works later
-                            // TODO study this shit i guess
-                            let output = std::process::Command::new("python3")
-                                .arg("tweet.py")
-                                .arg(body)
-                                .output();
+                        // Fuck this shit i'll figure out how the API works later
+                        // TODO study this shit i guess
+                        let output = std::process::Command::new("python3")
+                            .arg("tweet.py")
+                            .arg(body)
+                            .output();
 
-                            match output {
-                                Ok(Output {
-                                    status: _status,
-                                    stdout,
-                                    stderr,
-                                }) => {
-                                    if !stdout.is_empty() {
-                                        println!("Output: {}", String::from_utf8_lossy(&stdout));
-                                    }
-                                    if !stderr.is_empty() {
-                                        println!("Error: {}", String::from_utf8_lossy(&stderr));
-                                    }
+                        match output {
+                            Ok(Output {
+                                status: _status,
+                                stdout,
+                                stderr,
+                            }) => {
+                                if !stdout.is_empty() {
+                                    println!("Output: {}", String::from_utf8_lossy(&stdout));
                                 }
-                                Err(e) => println!("Failed to execute command: {}", e),
+                                if !stderr.is_empty() {
+                                    println!("Error: {}", String::from_utf8_lossy(&stderr));
+                                }
                             }
+                            Err(e) => println!("Failed to execute command: {}", e),
                         }
-                        _ => {}
                     }
-                    return;
-                } else {
-                    // If user leaves (since new_channel will be None)
-                    manager.leave(GUILD_ID).await.expect("Failed to leave");
-                    return;
+                    _ => {}
                 }
+                return;
+            } else {
+                // If user leaves (since new_channel will be None)
+                manager.leave(GUILD_ID).await.expect("Failed to leave");
+                return;
             }
-            DISCORD_ID_BOT => {
-                if let Some(ch) = new.channel_id {
-                    if !ch.eq(jo_ch) {
-                        // If bot is moved
-                        try_join_channel!(manager, new.guild_id.unwrap(), *jo_ch);
-                    }
-                } else if Some(*jo_ch).is_none() {
-                    // If bot is disconnected and the user is in the channel
-                    try_join_channel!(manager, new.guild_id.unwrap(), *jo_ch);
-                }
-            }
-            _ => {}
         }
     }
 
@@ -284,6 +272,26 @@ impl EventHandler for LocalHandlerCache {
                     {
                         Ok(msg) => Some(msg),
                         Err(e) => Some(e),
+                    }
+                }
+                "voice" => {
+                    let guild_id = &command.guild_id.unwrap();
+                    match commands::voice::run(
+                        &ctx,
+                        guild_id,
+                        get_voice_state(
+                            ctx.clone(),
+                            *guild_id,
+                            command.clone().user.id,
+                        ).await,
+                        &command.data.options(),
+                    ).await
+                    {
+                        Ok(_) => Some(format!(
+                            "Said: {}",
+                            &command.data.options.first().unwrap().value.as_str().unwrap()
+                        )),
+                        Err(e) => Some(format!("Error: {}", e)),
                     }
                 }
                 _ => Some("Not implemented :(".to_string()),
@@ -314,7 +322,8 @@ async fn main() {
         | GatewayIntents::MESSAGE_CONTENT
         | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILD_VOICE_STATES
-        | GatewayIntents::GUILDS;
+        | GatewayIntents::GUILDS
+        | GatewayIntents::non_privileged();
 
     let mut client = Client::builder(DISCORD_TOKEN, intents)
         .event_handler(LocalHandlerCache {
