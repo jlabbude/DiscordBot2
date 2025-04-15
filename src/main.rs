@@ -35,6 +35,12 @@ macro_rules! send_message {
     };
 }
 
+struct HttpKey;
+
+impl TypeMapKey for HttpKey {
+    type Value = reqwest::Client;
+}
+
 struct LocalHandlerCache {
     voice_time_start: Arc<Mutex<SystemTime>>,
     old_vc: Arc<Mutex<ChannelId>>,
@@ -341,6 +347,7 @@ async fn main() {
             )),
         })
         .register_songbird()
+        .type_map_insert::<HttpKey>(reqwest::Client::new())
         .await
         .expect("Err creating client");
 
