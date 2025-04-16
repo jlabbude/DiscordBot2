@@ -143,7 +143,8 @@ pub async fn run(
     options: &[ResolvedOption<'_>],
 ) -> CommandResult {
     let mut voice_lang = VoiceLanguage::Portuguese(VoiceType::Male);
-    let text = options.iter()
+    let text = options
+        .iter()
         .find(|opt| opt.name == "text")
         .and_then(|opt| {
             if let ResolvedValue::String(t) = opt.value {
@@ -157,48 +158,79 @@ pub async fn run(
     if let Some(voice_type_opt) = options.iter().find(|opt| opt.name == "voice_type") {
         if let ResolvedValue::String(voice_type_str) = voice_type_opt.value {
             let voice_type = VoiceType::from_str(voice_type_str)?;
-            if let Some(lang_opt) = options.iter().find(|opt| opt.name == "voice_language") {
-                if let ResolvedValue::String(lang_str) = lang_opt.value {
-                    match VoiceLanguage::from_str(lang_str)? {
-                        VoiceLanguage::Portuguese(_) => voice_lang = VoiceLanguage::Portuguese(voice_type),
-                        VoiceLanguage::English(_) => voice_lang = VoiceLanguage::English(voice_type),
-                        VoiceLanguage::Japanese(_) => voice_lang = VoiceLanguage::Japanese(voice_type),
-                    }
-                }
-            }
+            extract_voice_lang(options, &mut voice_lang, Some(voice_type))?;
         }
+    } else {
+        extract_voice_lang(options, &mut voice_lang, None)?;
     }
 
     play(ctx, *guild_id, text, voice_state, voice_lang).await
+}
+
+fn extract_voice_lang(
+    options: &[ResolvedOption],
+    voice_lang: &mut VoiceLanguage,
+    voice_type: Option<VoiceType>,
+) -> Result<(), CommandError> {
+    if let Some(lang_opt) = options.iter().find(|opt| opt.name == "voice_language") {
+        if let ResolvedValue::String(lang_str) = lang_opt.value {
+            match VoiceLanguage::from_str(lang_str)? {
+                VoiceLanguage::Portuguese(_) => {
+                    *voice_lang = VoiceLanguage::Portuguese(voice_type.unwrap_or(VoiceType::Male))
+                }
+                VoiceLanguage::English(_) => {
+                    *voice_lang = VoiceLanguage::English(voice_type.unwrap_or(VoiceType::Male))
+                }
+                VoiceLanguage::Japanese(_) => {
+                    *voice_lang = VoiceLanguage::Japanese(voice_type.unwrap_or(VoiceType::Male))
+                }
+            }
+        } else {
+            *voice_lang = VoiceLanguage::Portuguese(voice_type.unwrap_or(VoiceType::Male))
+        }
+    }
+    Ok(())
 }
 
 pub fn register() -> CreateCommand {
     CreateCommand::new("voice")
         .description("Text to jotavoice")
         .add_option(
-            CreateCommandOption::new(CommandOptionType::String, "text", "Text to convert to speech")
-                .required(true)
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "text",
+                "Text to convert to speech",
+            )
+            .required(true),
         )
         .add_option(
-            CreateCommandOption::new(CommandOptionType::String, "voice_type", "Whether the voice is male or female")
-                .add_string_choice(VoiceType::Male.to_string(), VoiceType::Male.to_string())
-                .add_string_choice(VoiceType::Female.to_string(), VoiceType::Female.to_string())
-                .required(false)
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "voice_type",
+                "Whether the voice is male or female",
+            )
+            .add_string_choice(VoiceType::Male.to_string(), VoiceType::Male.to_string())
+            .add_string_choice(VoiceType::Female.to_string(), VoiceType::Female.to_string())
+            .required(false),
         )
         .add_option(
-            CreateCommandOption::new(CommandOptionType::String, "voice_language", "Language for the voice")
-                .add_string_choice(
-                    VoiceLanguage::English(VoiceType::Male).to_string(),
-                    VoiceLanguage::English(VoiceType::Male).to_string(),
-                )
-                .add_string_choice(
-                    VoiceLanguage::Portuguese(VoiceType::Male).to_string(),
-                    VoiceLanguage::Portuguese(VoiceType::Male).to_string(),
-                )
-                .add_string_choice(
-                    VoiceLanguage::Japanese(VoiceType::Male).to_string(),
-                    VoiceLanguage::Japanese(VoiceType::Male).to_string(),
-                )
-                .required(false)
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "voice_language",
+                "Language for the voice",
+            )
+            .add_string_choice(
+                VoiceLanguage::English(VoiceType::Male).to_string(),
+                VoiceLanguage::English(VoiceType::Male).to_string(),
+            )
+            .add_string_choice(
+                VoiceLanguage::Portuguese(VoiceType::Male).to_string(),
+                VoiceLanguage::Portuguese(VoiceType::Male).to_string(),
+            )
+            .add_string_choice(
+                VoiceLanguage::Japanese(VoiceType::Male).to_string(),
+                VoiceLanguage::Japanese(VoiceType::Male).to_string(),
+            )
+            .required(false),
         )
 }
