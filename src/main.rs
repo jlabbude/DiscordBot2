@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::commands::join::get_voice_state;
-use crate::commands::server::get_server_pid;
 use serenity::all::{ChannelId, Http, Presence, Ready, UserId, VoiceState};
 use serenity::async_trait;
 use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
@@ -61,14 +60,14 @@ impl EventHandler for LocalHandlerCache {
                 }
             }
             _ => {
-                remove_activity(&ctx);
+                remove_activity();
                 //println!("Author: {:?} \n Message: {}", msg.author.name, msg.content);
             }
         }
     }
 
     async fn presence_update(&self, ctx: Context, new_data: Presence) {
-        remove_activity(&ctx);
+        remove_activity();
         let mut old_activity_name = self.old_activity_name.lock().await;
         let mut cached_start_activity_time = self.activity_time_start.lock().await;
 
@@ -168,7 +167,6 @@ impl EventHandler for LocalHandlerCache {
                         commands::ping::register(),
                         commands::join::register(),
                         commands::pic::register(),
-                        commands::server::register(),
                         commands::voice::register(),
                     ],
                 )
@@ -272,14 +270,6 @@ impl EventHandler for LocalHandlerCache {
                     Ok(_) => Some("Changed.".to_string()),
                     Err(e) => Some(e.to_string()),
                 },
-                "servidor" => {
-                    match commands::server::run(&ctx, &command.data.options(), &command.member)
-                        .await
-                    {
-                        Ok(msg) => Some(msg),
-                        Err(e) => Some(e),
-                    }
-                }
                 "voice" => {
                     let guild_id = &command.guild_id.unwrap();
                     match commands::voice::run(
@@ -316,11 +306,7 @@ impl EventHandler for LocalHandlerCache {
     }
 }
 
-fn remove_activity(ctx: &Context) {
-    if get_server_pid().is_none() {
-        ctx.shard.set_activity(None);
-    }
-}
+fn remove_activity(){}
 
 #[tokio::main]
 async fn main() {
